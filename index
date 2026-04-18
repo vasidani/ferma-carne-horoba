@@ -1,0 +1,2100 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FermaPro Carne – Aplicație Fermă</title>
+<meta name="theme-color" content="#3a1a0a">
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      window._swReg = reg;
+    } catch(e) { console.warn('SW eroare:', e); }
+  });
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
+:root{
+  /* Temă maro/amber – specific fermă carne, diferit de verde-ul de la lapte */
+  --c-dark:#3a1a0a;--c-mid:#7a3b1e;--c-light:#b05c2e;--c-pale:#e8c4a0;
+  --cream:#fdf6ee;--cream-dark:#f0e4d4;--amber:#c8860a;--red:#c0392b;--blue:#2471a3;
+  --text-dark:#3a1a0a;--text-mid:#7a5040;--text-light:#a07860;
+  --border:#e0cdb8;--shadow:0 2px 12px rgba(58,26,10,0.10);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--text-dark);min-height:100vh;}
+.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#3a1a0a 0%,#7a3b1e 100%);}
+.login-box{background:white;border-radius:16px;padding:40px;width:90%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+.login-logo{font-size:3rem;text-align:center;margin-bottom:6px;}
+.login-title{font-size:1.6rem;font-weight:800;text-align:center;color:var(--c-dark);margin-bottom:4px;}
+.login-sub{text-align:center;color:var(--text-light);font-size:0.85rem;margin-bottom:24px;}
+.error-msg{color:var(--red);font-size:0.82rem;margin-top:10px;text-align:center;padding:8px;background:#fce4ec;border-radius:6px;}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:230px;background:var(--c-dark);display:flex;flex-direction:column;z-index:100;transition:transform 0.3s;}
+.sidebar-logo{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;gap:10px;}
+.sidebar-logo h1{font-size:1.1rem;font-weight:800;color:var(--cream);}
+.sidebar-logo span{font-size:0.6rem;color:var(--c-pale);display:block;font-family:'IBM Plex Mono',monospace;letter-spacing:1px;}
+.sidebar-nav{flex:1;padding:12px 0;overflow-y:auto;}
+.nav-section-label{font-size:0.58rem;letter-spacing:2px;text-transform:uppercase;color:rgba(232,196,160,0.4);padding:10px 18px 4px;font-family:'IBM Plex Mono',monospace;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 18px;cursor:pointer;color:rgba(253,246,238,0.7);font-size:0.875rem;font-weight:600;transition:all 0.2s;border-left:3px solid transparent;}
+.nav-item:hover{color:var(--cream);background:rgba(255,255,255,0.06);}
+.nav-item.active{color:var(--cream);background:rgba(232,196,160,0.15);border-left-color:var(--c-pale);}
+.nav-badge{background:var(--red);color:white;border-radius:10px;padding:1px 7px;font-size:0.65rem;font-weight:700;margin-left:auto;}
+.sidebar-footer{padding:14px 18px;border-top:1px solid rgba(255,255,255,0.1);}
+.user-info{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.user-name{font-size:0.85rem;font-weight:700;color:var(--cream);}
+.user-role{font-size:0.68rem;color:var(--c-pale);}
+.btn-logout{width:100%;padding:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:rgba(253,246,238,0.7);font-size:0.78rem;cursor:pointer;margin-bottom:10px;font-family:'Nunito',sans-serif;font-weight:600;}
+.btn-logout:hover{background:rgba(255,255,255,0.15);color:white;}
+.clock-box{background:rgba(232,196,160,0.1);border-radius:8px;padding:8px 10px;}
+.clock-date{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;color:var(--c-pale);letter-spacing:1px;}
+.clock-time{font-size:1.2rem;font-weight:800;color:var(--cream);}
+.main{margin-left:230px;min-height:100vh;display:flex;flex-direction:column;}
+.topbar{background:white;border-bottom:2px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
+.topbar-title{font-size:1.05rem;font-weight:800;color:var(--text-dark);}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.alert-badge{background:var(--red);color:white;border-radius:50%;width:26px;height:26px;font-size:0.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.content{padding:22px 24px;flex:1;}
+.mobile-menu-btn{display:none;position:fixed;top:14px;left:14px;z-index:200;background:var(--c-dark);color:white;border:none;border-radius:8px;width:36px;height:36px;font-size:1.1rem;cursor:pointer;}
+.page{display:none;animation:fadeIn 0.2s ease;}
+.page.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+.stat-card{background:white;border-radius:10px;padding:18px;border:1px solid var(--border);box-shadow:var(--shadow);position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.stat-card.brown::before{background:var(--c-light);}
+.stat-card.amber::before{background:var(--amber);}
+.stat-card.red::before{background:var(--red);}
+.stat-card.blue::before{background:var(--blue);}
+.stat-card.green::before{background:#4a8c3f;}
+.stat-label{font-family:'IBM Plex Mono',monospace;font-size:0.58rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-light);margin-bottom:6px;}
+.stat-value{font-size:2rem;font-weight:800;color:var(--text-dark);line-height:1;}
+.stat-sub{font-size:0.73rem;color:var(--text-light);margin-top:5px;}
+.dashboard-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;}
+.card{background:white;border-radius:10px;border:1px solid var(--border);box-shadow:var(--shadow);margin-bottom:16px;}
+.card-header{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.card-title{font-size:0.92rem;font-weight:700;color:var(--text-dark);}
+.card-body{padding:14px 18px;}
+.btn{padding:8px 16px;border-radius:7px;font-family:'Nunito',sans-serif;font-size:0.84rem;font-weight:700;cursor:pointer;border:none;transition:all 0.18s;display:inline-flex;align-items:center;gap:5px;}
+.btn-primary{background:var(--c-mid);color:white;}
+.btn-primary:hover{background:var(--c-light);}
+.btn-secondary{background:var(--cream-dark);color:var(--text-dark);border:1px solid var(--border);}
+.btn-secondary:hover{background:var(--border);}
+.btn-danger{background:var(--red);color:white;}
+.btn-amber{background:var(--amber);color:white;}
+.btn-green{background:#4a8c3f;color:white;}
+.btn-sm{padding:4px 10px;font-size:0.76rem;}
+.btn-full{width:100%;padding:12px;font-size:1rem;margin-top:8px;justify-content:center;}
+.form-group{margin-bottom:13px;}
+.form-label{display:block;font-size:0.73rem;font-weight:700;color:var(--text-mid);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.5px;}
+.form-control{width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:7px;font-family:'Nunito',sans-serif;font-size:0.875rem;color:var(--text-dark);background:white;transition:border-color 0.2s;}
+.form-control:focus{outline:none;border-color:var(--c-light);box-shadow:0 0 0 3px rgba(176,92,46,0.1);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+textarea.form-control{resize:vertical;min-height:72px;}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;}
+.section-title{font-size:1.3rem;font-weight:800;color:var(--text-dark);}
+.search-bar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.search-input{flex:1;min-width:180px;padding:9px 12px 9px 34px;border:1.5px solid var(--border);border-radius:7px;font-size:0.875rem;background:white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23a07860' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") 10px center no-repeat;}
+.search-input:focus{outline:none;border-color:var(--c-light);}
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:0.83rem;}
+th{background:var(--cream-dark);padding:9px 13px;text-align:left;font-family:'IBM Plex Mono',monospace;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--text-mid);border-bottom:2px solid var(--border);white-space:nowrap;}
+td{padding:9px 13px;border-bottom:1px solid var(--border);color:var(--text-dark);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(176,92,46,0.03);}
+.loading{text-align:center;padding:24px;color:var(--text-light);font-style:italic;}
+.action-btns{display:flex;gap:5px;flex-wrap:wrap;}
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:0.7rem;font-weight:700;white-space:nowrap;}
+/* Badge stări specifice carne */
+.b-apta{background:#e8f5e9;color:#2d5a27;border:1px solid #a8d5a2;}
+.b-gestanta{background:#fff8e1;color:#856404;border:1px solid #ffc107;}
+.b-alaptare{background:#f3e5f5;color:#6a1b9a;border:1px solid #ce93d8;}
+.b-ingrasat{background:#e8f0fe;color:#1a237e;border:1px solid #9fa8da;}
+.b-maternitate{background:#fce4ec;color:#880e4f;border:1px solid #f48fb1;}
+.b-tratament{background:#fff3e0;color:#e65100;border:1px solid #ffcc80;}
+.b-montata{background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;}
+.b-vanduta{background:#eceff1;color:#546e7a;border:1px solid #b0bec5;}
+.b-vanzare{background:#fff9c4;color:#f57f17;border:1px solid #fff176;}
+/* Badge categorii animale */
+.b-cat-vaca{background:#fbe9e7;color:#bf360c;border:1px solid #ffab91;}
+.b-cat-taur{background:#e3f2fd;color:#0d47a1;border:1px solid #90caf9;}
+.b-cat-juninca{background:#f3e5f5;color:#4a148c;border:1px solid #ce93d8;}
+.b-cat-tineret{background:#e8f5e9;color:#1b5e20;border:1px solid #a5d6a7;}
+/* Badge sex vițel */
+.b-mascul{background:#e3f2fd;color:#0d47a1;border:1px solid #90caf9;}
+.b-femela{background:#fce4ec;color:#880e4f;border:1px solid #f48fb1;}
+/* SMZ colors */
+.smz-bun{color:#2d5a27;font-weight:700;}
+.smz-slab{color:var(--amber);font-weight:700;}
+.smz-negativ{color:var(--red);font-weight:700;}
+.prog-wrap{min-width:90px;}
+.prog-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;background:var(--c-light);}
+.prog-fill.warn{background:var(--amber);}
+.prog-fill.danger{background:var(--red);}
+.prog-info{font-size:0.7rem;color:var(--text-light);margin-top:2px;}
+.tabs{display:flex;border-bottom:2px solid var(--border);margin-bottom:16px;overflow-x:auto;}
+.tab{padding:9px 18px;cursor:pointer;font-size:0.875rem;font-weight:700;color:var(--text-light);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.2s;white-space:nowrap;}
+.tab:hover{color:var(--text-dark);}
+.tab.active{color:var(--c-mid);border-bottom-color:var(--c-mid);}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(3px);}
+.modal-overlay.open{display:flex;}
+.modal{background:white;border-radius:12px;width:92%;max-width:600px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);animation:modalIn 0.25s ease;}
+@keyframes modalIn{from{transform:translateY(14px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.modal-header{padding:16px 20px;border-bottom:2px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:white;z-index:10;}
+.modal-title{font-size:1rem;font-weight:800;}
+.modal-close{background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--text-light);width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:6px;}
+.modal-close:hover{background:var(--cream-dark);}
+.modal-body{padding:18px 20px;}
+.modal-footer{padding:13px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;position:sticky;bottom:0;background:white;flex-wrap:wrap;}
+.confirm-box{background:white;border-radius:12px;padding:28px;max-width:440px;width:92%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:modalIn 0.2s ease;}
+.confirm-icon{font-size:2.8rem;margin-bottom:12px;}
+.confirm-title{font-size:1.05rem;font-weight:800;margin-bottom:8px;}
+.confirm-text{font-size:0.875rem;color:var(--text-mid);line-height:1.5;margin-bottom:20px;}
+.confirm-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+.alert-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.alert-item:last-child{border-bottom:none;}
+.alert-dot{width:9px;height:9px;border-radius:50%;margin-top:5px;flex-shrink:0;}
+.alert-dot.red{background:var(--red);}
+.alert-dot.amber{background:var(--amber);}
+.alert-dot.green{background:#4a8c3f;}
+.alert-text{font-size:0.84rem;line-height:1.4;}
+.alert-sub{font-size:0.73rem;color:var(--text-light);margin-top:2px;}
+.alert-action{color:var(--red);font-weight:700;cursor:pointer;font-size:0.78rem;}
+.notif-container{position:fixed;top:68px;right:16px;z-index:3000;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:320px;}
+.notif{background:white;border-radius:10px;padding:13px 16px;box-shadow:0 8px 32px rgba(0,0,0,0.15);display:flex;gap:10px;align-items:flex-start;border-left:4px solid var(--c-light);animation:notifIn 0.3s ease;pointer-events:all;}
+.notif.warn{border-left-color:var(--amber);}
+.notif.err{border-left-color:var(--red);}
+@keyframes notifIn{from{transform:translateX(16px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+.notif-title{font-weight:700;font-size:0.84rem;margin-bottom:2px;}
+.notif-text{font-size:0.77rem;color:var(--text-mid);}
+.fisa-header{background:linear-gradient(135deg,var(--c-dark),var(--c-mid));border-radius:10px;padding:18px;color:white;margin-bottom:16px;display:flex;gap:16px;align-items:center;}
+.fisa-avatar{width:54px;height:54px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.7rem;flex-shrink:0;}
+.fisa-name{font-size:1.2rem;font-weight:800;margin-bottom:3px;}
+.fisa-meta{font-size:0.78rem;opacity:0.8;}
+.fisa-badges{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;}
+.fisa-badge{background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:2px 9px;font-size:0.7rem;font-weight:700;}
+.info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+.info-item{background:var(--cream);border:1px solid var(--border);border-radius:7px;padding:9px 11px;}
+.info-item-label{font-family:'IBM Plex Mono',monospace;font-size:0.58rem;letter-spacing:1px;text-transform:uppercase;color:var(--text-light);margin-bottom:3px;}
+.info-item-value{font-size:0.875rem;font-weight:700;}
+.subsec-title{font-size:0.92rem;font-weight:800;color:var(--text-dark);margin:14px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.timeline-item{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);}
+.timeline-item:last-child{border-bottom:none;}
+.tl-dot{width:9px;height:9px;border-radius:50%;margin-top:5px;flex-shrink:0;}
+.tl-date{font-family:'IBM Plex Mono',monospace;font-size:0.68rem;color:var(--text-light);white-space:nowrap;margin-top:2px;min-width:80px;}
+.tl-title{font-size:0.84rem;font-weight:600;}
+.tl-detail{font-size:0.76rem;color:var(--text-mid);margin-top:2px;}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.7rem;font-weight:700;margin-right:4px;}
+.tag-monta{background:#e3f2fd;color:#1565c0;}
+.tag-fatare{background:#fce4ec;color:#880e4f;}
+.tag-vaccin{background:#f3e5f5;color:#6a1b9a;}
+.tag-tratament{background:#fff3e0;color:#e65100;}
+.tag-deparazitare{background:#e0f7fa;color:#006064;}
+.tag-greutate{background:#e8f5e9;color:#1b5e20;}
+.tag-furaj{background:#fff8e1;color:#856404;}
+.info-box{background:var(--cream);border:1px solid var(--border);border-radius:7px;padding:11px 14px;font-size:0.82rem;color:var(--text-mid);line-height:1.5;margin-top:10px;}
+.info-box.warning{background:#fff8e1;border-color:var(--amber);color:#856404;}
+.info-box.success{background:#e8f5e9;border-color:#a8d5a2;color:#2d5a27;}
+/* Card alerta */
+.alert-card-urgent{background:linear-gradient(135deg,#fce4ec,#ffebee);border:2px solid var(--red);border-radius:10px;padding:14px 16px;margin-bottom:10px;}
+.alert-card-warn{background:linear-gradient(135deg,#fff8e1,#fff3cd);border:2px solid var(--amber);border-radius:10px;padding:14px 16px;margin-bottom:10px;}
+/* Greutăți sumar cards */
+.gr-sumar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:0;}
+.gr-sumar-card{background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
+.gr-sumar-label{font-family:'IBM Plex Mono',monospace;font-size:0.58rem;letter-spacing:1px;text-transform:uppercase;color:var(--text-light);margin-bottom:4px;}
+.gr-sumar-value{font-size:1.4rem;font-weight:800;color:var(--text-dark);}
+.gr-sumar-sub{font-size:0.72rem;color:var(--text-light);margin-top:3px;}
+/* Furaj cards */
+.furaj-card{background:white;border:1.5px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.furaj-info{flex:1;}
+.furaj-name{font-weight:700;font-size:0.92rem;margin-bottom:3px;}
+.furaj-meta{font-size:0.78rem;color:var(--text-mid);}
+.furaj-stoc{text-align:right;flex-shrink:0;}
+.furaj-stoc-val{font-size:1.3rem;font-weight:800;}
+.furaj-stoc-val.low{color:var(--red);}
+.furaj-stoc-val.ok{color:#2d5a27;}
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%);}
+  .sidebar.open{transform:translateX(0);}
+  .main{margin-left:0;}
+  .mobile-menu-btn{display:flex;align-items:center;justify-content:center;}
+  .stats-grid{grid-template-columns:1fr 1fr;}
+  .dashboard-grid{grid-template-columns:1fr;}
+  .form-row{grid-template-columns:1fr;}
+  .form-row-3{grid-template-columns:1fr;}
+  .info-grid{grid-template-columns:1fr 1fr;}
+}
+@media(max-width:480px){.stats-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- LOGIN -->
+<div id="loginPage" class="login-page">
+  <div class="login-box">
+    <div class="login-logo">🐂</div>
+    <h1 class="login-title">FermaPro Carne</h1>
+    <p class="login-sub">Monitorizare fermă vaci de carne</p>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input type="email" id="loginEmail" class="form-control" placeholder="email@ferma.ro">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Parolă</label>
+      <input type="password" id="loginPassword" class="form-control" placeholder="••••••••">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="doLogin()">🔐 Intră în aplicație</button>
+    <div id="loginError" class="error-msg" style="display:none"></div>
+  </div>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="mainApp" style="display:none">
+  <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <span style="font-size:1.8rem">🐂</span>
+      <div><h1>FermaPro Carne</h1><span>Fermă vaci de carne</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Principal</div>
+      <div class="nav-item active" onclick="showPage('dashboard',this)"><span>📊</span> Dashboard</div>
+      <div class="nav-item" onclick="showPage('animale',this)"><span>🐂</span> Efectiv Animale</div>
+      <div class="nav-item" onclick="showPage('vitei',this)"><span>🐄</span> Viței & Tineret</div>
+      <div class="nav-section-label">Producție</div>
+      <div class="nav-item" onclick="showPage('greutati',this)"><span>⚖️</span> Greutăți & SMZ</div>
+      <div class="nav-item" onclick="showPage('furaje',this)"><span>🌾</span> Furaje & Rații</div>
+      <div class="nav-section-label">Management</div>
+      <div class="nav-item" onclick="showPage('reproductie',this)"><span>🔄</span> Reproducție</div>
+      <div class="nav-item" onclick="showPage('sanatate',this)"><span>💊</span> Sănătate</div>
+      <div class="nav-item" onclick="showPage('alerte',this)"><span>🔔</span> Alerte <span class="nav-badge" id="navAlertCount">0</span></div>
+      <div class="nav-section-label">Arhivă</div>
+      <div class="nav-item" onclick="showPage('istoric-vitei',this)"><span>📦</span> Istoric Viței</div>
+      <div class="nav-item" onclick="showPage('istoric-animale',this)"><span>🗂️</span> Istoric Animale</div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div style="font-size:1.5rem">👤</div>
+        <div><div class="user-name" id="userName">–</div><div class="user-role" id="userRole">–</div></div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">Ieșire din cont</button>
+      <div class="clock-box">
+        <div class="clock-date" id="clockDate">–</div>
+        <div class="clock-time" id="clockTime">–</div>
+      </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);text-align:center">
+        <div style="font-size:0.58rem;color:rgba(232,196,160,0.4);letter-spacing:1px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace">Developed by</div>
+        <div style="font-size:0.72rem;color:rgba(232,196,160,0.8);font-weight:700;margin-top:2px">🌱 Hereș Vasile</div>
+        <div style="font-size:0.58rem;color:rgba(232,196,160,0.4);margin-top:1px">v1.0 Carne · 2026</div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbarTitle">📊 Dashboard</div>
+      <div class="topbar-right">
+        <div class="alert-badge" id="alertBadge" onclick="showPage('alerte',null)">0</div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modalAdaugaAnimal')">+ Animal nou</button>
+      </div>
+    </div>
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <div class="stats-grid">
+          <div class="stat-card brown"><div class="stat-label">Animale active</div><div class="stat-value" id="s-animale">–</div><div class="stat-sub">în efectiv</div></div>
+          <div class="stat-card amber"><div class="stat-label">Gr. medie efectiv</div><div class="stat-value" id="s-greutate">–</div><div class="stat-sub">kg / cap</div></div>
+          <div class="stat-card red"><div class="stat-label">Alerte</div><div class="stat-value" id="s-alerte">–</div><div class="stat-sub">necesită atenție</div></div>
+          <div class="stat-card blue"><div class="stat-label">Gestante</div><div class="stat-value" id="s-gestante">–</div><div class="stat-sub">în gestație</div></div>
+        </div>
+        <div class="dashboard-grid">
+          <div class="card">
+            <div class="card-header"><div class="card-title">⚠️ Alerte & Acțiuni necesare</div><button class="btn btn-sm btn-secondary" onclick="showPage('alerte',null)">Toate →</button></div>
+            <div class="card-body" id="dashAlerte"><div class="loading">Se încarcă...</div></div>
+          </div>
+          <div>
+            <div class="card">
+              <div class="card-header"><div class="card-title">⚖️ Ultimele cântăriri</div><button class="btn btn-sm btn-primary" onclick="openModalGreutate()">+ Cântărire</button></div>
+              <div class="card-body" id="dashGreutati"><div class="loading">Se încarcă...</div></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><div class="card-title">🌾 Stoc furaje</div><button class="btn btn-sm btn-secondary" onclick="showPage('furaje',null)">Detalii →</button></div>
+              <div class="card-body" id="dashFuraje"><div class="loading">Se încarcă...</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ANIMALE -->
+      <div class="page" id="page-animale">
+        <div class="section-header">
+          <div class="section-title">🐂 Efectiv Animale</div>
+          <button class="btn btn-primary" onclick="openModal('modalAdaugaAnimal')">+ Adaugă animal</button>
+        </div>
+        <div class="search-bar">
+          <input type="text" class="search-input" id="searchAnimale" placeholder="Caută după nume sau crotal..." oninput="loadAnimale()">
+          <select class="form-control" style="width:160px" id="filterCategorie" onchange="loadAnimale()">
+            <option value="">Toate categoriile</option>
+            <option value="vaca_adulta">Vacă adultă</option>
+            <option value="taur">Taur</option>
+            <option value="juninca">Junincă</option>
+            <option value="tineret_femela">Tineret femelă</option>
+            <option value="tineret_mascul">Tineret mascul</option>
+          </select>
+          <select class="form-control" style="width:140px" id="filterStare" onchange="loadAnimale()">
+            <option value="">Toate stările</option>
+            <option value="apta">Aptă / Liber</option>
+            <option value="gestanta">Gestantă</option>
+            <option value="alaptare">Alăptare</option>
+            <option value="ingrasat">La îngrășat</option>
+            <option value="tratament">Tratament</option>
+          </select>
+        </div>
+        <div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Crotal</th><th>Nume</th><th>Categorie</th><th>Rasă</th><th>Vârstă</th><th>Fătări</th><th>Ultimă gr.</th><th>Stare</th><th>Gestație</th><th>Acțiuni</th></tr></thead>
+          <tbody id="tblAnimale"><tr><td colspan="10" class="loading">Se încarcă...</td></tr></tbody>
+        </table></div></div>
+      </div>
+
+      <!-- VITEI -->
+      <div class="page" id="page-vitei">
+        <div class="section-header">
+          <div class="section-title">🐄 Viței & Tineret</div>
+          <button class="btn btn-primary" onclick="openModalVitel()">+ Adaugă vițel</button>
+        </div>
+        <div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Data naștere</th><th>Sex</th><th>Nume / Crotal</th><th>Mama</th><th>Tată</th><th>Vârstă</th><th>Ultimă gr.</th><th>Stare</th><th>Acțiuni</th></tr></thead>
+          <tbody id="tblVitei"><tr><td colspan="9" class="loading">Se încarcă...</td></tr></tbody>
+        </table></div></div>
+      </div>
+
+      <!-- GREUTATI & SMZ -->
+      <div class="page" id="page-greutati">
+        <div class="section-header">
+          <div class="section-title">⚖️ Greutăți & Spor Mediu Zilnic</div>
+          <button class="btn btn-primary" onclick="openModalGreutate()">+ Înregistrează cântărire</button>
+        </div>
+        <!-- Sumar statistici -->
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header"><div class="card-title">📊 Sumar efectiv – ultima cântărire</div></div>
+          <div class="card-body" id="sumarGreutati"><div class="loading">Se calculează...</div></div>
+        </div>
+        <!-- Tabel istoric -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📋 Istoric cântăriri</div>
+            <select class="form-control" style="width:160px;font-size:0.82rem" id="filterAnimalGr" onchange="loadGreutati()">
+              <option value="">Toate animalele</option>
+            </select>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Data</th><th>Animal</th><th>Categorie</th><th>Greutate</th><th>Prev.</th><th>Diferență</th><th>Zile</th><th>SMZ</th><th>Tip</th><th>Obs.</th><th>Acțiuni</th></tr></thead>
+            <tbody id="tblGreutati"><tr><td colspan="11" class="loading">Se încarcă...</td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- FURAJE -->
+      <div class="page" id="page-furaje">
+        <div class="section-header">
+          <div class="section-title">🌾 Furaje & Rații Alimentare</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="openModalFuraj()">+ Adaugă furaj</button>
+            <button class="btn btn-secondary" onclick="openModalConsum()">📉 Înregistrează consum</button>
+          </div>
+        </div>
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(this,'tab-stoc-furaje')">Stoc curent</div>
+          <div class="tab" onclick="switchTab(this,'tab-ratii')">Rații recomandate</div>
+          <div class="tab" onclick="switchTab(this,'tab-consum-ist')">Istoric consum</div>
+        </div>
+        <div id="tab-stoc-furaje">
+          <div id="listaFuraje"><div class="loading">Se încarcă...</div></div>
+        </div>
+        <div id="tab-ratii" style="display:none">
+          <div class="card">
+            <div class="card-header"><div class="card-title">📋 Rații zilnice recomandate per categorie</div></div>
+            <div class="card-body">
+              <div class="info-box" style="margin-bottom:14px">ℹ️ Valorile de mai jos sunt orientative, bazate pe normele zootehnice pentru rase de carne. Ajustați în funcție de rasă, vârstă și scop (reproducție / îngrășare).</div>
+              <table>
+                <thead><tr><th>Categorie</th><th>Fân (kg/zi)</th><th>Siloz (kg/zi)</th><th>Concentrate (kg/zi)</th><th>Obs.</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>Vacă adultă (gestantă)</strong></td><td>6–8</td><td>15–20</td><td>1–2</td><td>Crește progresiv în trim. 3</td></tr>
+                  <tr><td><strong>Vacă adultă (alăptare)</strong></td><td>5–7</td><td>12–18</td><td>2–3</td><td>Supliment mineral obligatoriu</td></tr>
+                  <tr><td><strong>Taur reproducător</strong></td><td>6–8</td><td>10–15</td><td>2–4</td><td>Condiție corporală 3–3.5</td></tr>
+                  <tr><td><strong>Tineret la îngrășat (6–12 l)</strong></td><td>3–5</td><td>8–12</td><td>2–3</td><td>SMZ țintă: 0.8–1.2 kg/zi</td></tr>
+                  <tr><td><strong>Tineret la îngrășat (12–18 l)</strong></td><td>4–6</td><td>10–15</td><td>2–4</td><td>SMZ țintă: 1.0–1.4 kg/zi</td></tr>
+                  <tr><td><strong>Junincă (premontă)</strong></td><td>4–6</td><td>8–12</td><td>1–2</td><td>Evitați supracondiționarea</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div id="tab-consum-ist" style="display:none">
+          <div class="card"><div class="table-wrap"><table>
+            <thead><tr><th>Data</th><th>Furaj</th><th>Cantitate</th><th>Categorie animale</th><th>Observații</th></tr></thead>
+            <tbody id="tblConsumIst"><tr><td colspan="5" class="loading">Se încarcă...</td></tr></tbody>
+          </table></div></div>
+        </div>
+      </div>
+
+      <!-- REPRODUCTIE -->
+      <div class="page" id="page-reproductie">
+        <div class="section-header">
+          <div class="section-title">🔄 Reproducție & Monte</div>
+          <button class="btn btn-primary" onclick="openModalMonta()">+ Înregistrează montă</button>
+        </div>
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(this,'tab-monte')">Monte active</div>
+          <div class="tab" onclick="switchTab(this,'tab-gestante')">Gestante</div>
+          <div class="tab" onclick="switchTab(this,'tab-istoric-monte')">Istoric</div>
+        </div>
+        <div id="tab-monte"><div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Animal</th><th>Data montei</th><th>Zile</th><th>Taur</th><th>21 zile</th><th>30 zile</th><th>Stare</th><th>Acțiuni</th></tr></thead>
+          <tbody id="tblMonte"><tr><td colspan="8" class="loading">Se încarcă...</td></tr></tbody>
+        </table></div></div></div>
+        <div id="tab-gestante" style="display:none"><div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Animal</th><th>Data montei</th><th>Zile gestație</th><th>Progress</th><th>263 zile</th><th>280 zile</th><th>Acțiuni</th></tr></thead>
+          <tbody id="tblGestante"><tr><td colspan="7" class="loading">Se încarcă...</td></tr></tbody>
+        </table></div></div></div>
+        <div id="tab-istoric-monte" style="display:none"><div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Animal</th><th>Data</th><th>Tip</th><th>Taur</th><th>Rezultat</th><th>Data fătare</th></tr></thead>
+          <tbody id="tblIstoricMonte"><tr><td colspan="6" class="loading">Se încarcă...</td></tr></tbody>
+        </table></div></div></div>
+      </div>
+
+      <!-- SANATATE -->
+      <div class="page" id="page-sanatate">
+        <div class="section-header">
+          <div class="section-title">💊 Sănătate & Tratamente</div>
+          <button class="btn btn-primary" onclick="openModalTratament()">+ Adaugă înregistrare</button>
+        </div>
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(this,'tab-trat')">Tratamente active</div>
+          <div class="tab" onclick="switchTab(this,'tab-vacc')">Vaccinuri</div>
+          <div class="tab" onclick="switchTab(this,'tab-dep')">Deparazitări</div>
+          <div class="tab" onclick="switchTab(this,'tab-san-ist')">Istoric complet</div>
+        </div>
+        <div id="tab-trat"><div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Animal</th><th>Diagnostic</th><th>Medicament</th><th>Doză</th><th>Start</th><th>Zile</th><th>Veterinar</th><th>Acțiuni</th></tr></thead>
+          <tbody id="tblTrat"><tr><td colspan="8" class="loading">Se încarcă...</td></tr></tbody>
+        </table></div></div></div>
+        <div id="tab-vacc" style="display:none"><div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Animal</th><th>Vaccin</th><th>Data</th><th>Următor</th><th>Veterinar</th><th>Acțiuni</th></tr></thead>
+          <tbody id="tblVacc"><tr><td colspan="6" class="loading">Se încarcă...</td></tr></tbody>
+        </table></div></div></div>
+        <div id="tab-dep" style="display:none"><div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Animal</th><th>Produs</th><th>Data</th><th>Doză</th><th>Următor</th><th>Acțiuni</th></tr></thead>
+          <tbody id="tblDep"><tr><td colspan="6" class="loading">Se încarcă...</td></tr></tbody>
+        </table></div></div></div>
+        <div id="tab-san-ist" style="display:none"><div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Data</th><th>Animal</th><th>Tip</th><th>Diagnostic</th><th>Medicament</th><th>Veterinar</th></tr></thead>
+          <tbody id="tblSanIst"><tr><td colspan="6" class="loading">Se încarcă...</td></tr></tbody>
+        </table></div></div></div>
+      </div>
+
+      <!-- ALERTE -->
+      <div class="page" id="page-alerte">
+        <div class="section-header"><div class="section-title">🔔 Alerte & Reminder-e</div></div>
+        <div id="alerteContainer"><div class="loading">Se încarcă alertele...</div></div>
+      </div>
+
+      <!-- ISTORIC VITEI -->
+      <div class="page" id="page-istoric-vitei">
+        <div class="section-header"><div class="section-title">📦 Istoric Viței (vânduți / ieșiți)</div></div>
+        <div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Data naștere</th><th>Sex</th><th>Nume / Crotal</th><th>Mama</th><th>Vârstă la ieșire</th><th>Gr. la ieșire</th><th>Data vânzare</th><th>Stare</th><th>Observații</th></tr></thead>
+          <tbody id="tblIstoricVitei"><tr><td colspan="9" class="loading">Se încarcă...</td></tr></tbody>
+        </table></div></div>
+      </div>
+
+      <!-- ISTORIC ANIMALE -->
+      <div class="page" id="page-istoric-animale">
+        <div class="section-header"><div class="section-title">🗂️ Istoric Animale (ieșite din fermă)</div></div>
+        <div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Crotal</th><th>Nume</th><th>Categorie</th><th>Rasă</th><th>Data nașterii</th><th>Fătări</th><th>Gr. la ieșire</th><th>Data ieșirii</th><th>Motiv</th><th>Observații</th><th>Acțiuni</th></tr></thead>
+          <tbody id="tblIstoricAnimale"><tr><td colspan="11" class="loading">Se încarcă...</td></tr></tbody>
+        </table></div></div>
+      </div>
+
+    </div><!-- /content -->
+  </main>
+</div><!-- /mainApp -->
+</div><!-- /app -->
+
+<div id="notifContainer" class="notif-container"></div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- MODALE -->
+<!-- ═══════════════════════════════════════════════════════ -->
+
+<!-- MODAL ADAUGĂ / EDITEAZĂ ANIMAL -->
+<div class="modal-overlay" id="modalAdaugaAnimal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header"><div class="modal-title" id="titleAdaugaAnimal">🐂 Adaugă animal</div><button class="modal-close" onclick="closeModal('modalAdaugaAnimal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Număr crotal *</label><input type="text" id="a_crotal" class="form-control" placeholder="ex: RO1234567"></div>
+        <div class="form-group"><label class="form-label">Nume</label><input type="text" id="a_nume" class="form-control" placeholder="ex: Doina"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Categorie *</label>
+          <select id="a_categorie" class="form-control" onchange="toggleAnimalSex()">
+            <option value="vaca_adulta">🐄 Vacă adultă</option>
+            <option value="taur">🐂 Taur reproducător</option>
+            <option value="juninca">Junincă (femelă tânără, nemontată)</option>
+            <option value="tineret_femela">Tineret femelă (la îngrășat / creștere)</option>
+            <option value="tineret_mascul">Tineret mascul (la îngrășat)</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Rasă</label>
+          <select id="a_rasa" class="form-control">
+            <option>Charolaise</option><option>Limousin</option><option>Aberdeen Angus</option>
+            <option>Hereford</option><option>Simmental</option><option>Blonde d'Aquitaine</option>
+            <option>Bălțata Românească</option><option>Hibrid carne</option><option>Alta</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Data nașterii *</label><input type="date" id="a_data_nastere" class="form-control"></div>
+        <div class="form-group"><label class="form-label">Nr. fătări actuale</label><input type="number" id="a_fatari" class="form-control" value="0" min="0"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Stare curentă</label>
+          <select id="a_stare" class="form-control" onchange="toggleGestAnimal()">
+            <option value="apta">Aptă montă / Liber</option>
+            <option value="gestanta">Gestantă</option>
+            <option value="alaptare">Alăptare</option>
+            <option value="ingrasat">La îngrășat</option>
+            <option value="maternitate">Maternitate</option>
+            <option value="tratament">Tratament</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Greutate la înregistrare (kg)</label><input type="number" id="a_greutate_init" class="form-control" placeholder="ex: 480" oninput="previewSmz()"></div>
+      </div>
+      <div id="gestAnimalSection" style="display:none">
+        <div class="form-group"><label class="form-label">Data montei (dacă gestantă)</label><input type="date" id="a_monta" class="form-control"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Observații</label><textarea id="a_obs" class="form-control" placeholder="Observații opționale..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalAdaugaAnimal')">Anulează</button>
+      <button class="btn btn-primary" id="btnSalveazaAnimal" onclick="salveazaAnimal()">💾 Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ADAUGĂ VIȚEL -->
+<div class="modal-overlay" id="modalAdaugaVitel">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header"><div class="modal-title" id="titleVitel">🐄 Adaugă vițel</div><button class="modal-close" onclick="closeModal('modalAdaugaVitel')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Data nașterii *</label><input type="date" id="vit_data" class="form-control"></div>
+        <div class="form-group"><label class="form-label">Sex *</label><select id="vit_sex" class="form-control"><option value="femela">Femelă</option><option value="mascul">Mascul</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Nume vițel</label><input type="text" id="vit_nume" class="form-control" placeholder="Opțional"></div>
+        <div class="form-group"><label class="form-label">Nr. crotal vițel</label><input type="text" id="vit_crotal" class="form-control" placeholder="ex: RO9876543"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Mama</label><select id="vit_mama" class="form-control"></select></div>
+        <div class="form-group"><label class="form-label">Tată / taur</label><input type="text" id="vit_tata" class="form-control" placeholder="ex: Charolaise #A12"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Greutate la naștere (kg)</label><input type="number" id="vit_greutate" class="form-control" placeholder="ex: 38"></div>
+        <div class="form-group"><label class="form-label">Sănătate</label><select id="vit_sanatate" class="form-control"><option value="true">Sănătos</option><option value="false">Probleme</option></select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Vândut la adăugare?</label><select id="vit_vandut_init" class="form-control"><option value="false">Nu – rămâne în fermă</option><option value="true">Da – vândut imediat</option></select></div>
+      <div class="form-group"><label class="form-label">Observații</label><input type="text" id="vit_obs" class="form-control" placeholder="Opțional..."></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalAdaugaVitel')">Anulează</button>
+      <button class="btn btn-primary" id="btnSalveazaVitel" onclick="salveazaVitel()">💾 Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CÂNTĂRIRE GREUTATE -->
+<div class="modal-overlay" id="modalGreutate">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header"><div class="modal-title" id="titleGreutate">⚖️ Înregistrează cântărire</div><button class="modal-close" onclick="closeModal('modalGreutate')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Animal *</label><select id="gr_animal" class="form-control" onchange="previewSmzModal()"></select></div>
+        <div class="form-group"><label class="form-label">Data cântăririi *</label><input type="date" id="gr_data" class="form-control" oninput="previewSmzModal()"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Greutate (kg) *</label><input type="number" id="gr_kg" class="form-control" placeholder="ex: 485" step="0.5" oninput="previewSmzModal()"></div>
+        <div class="form-group"><label class="form-label">Tip cântărire</label>
+          <select id="gr_tip" class="form-control">
+            <option value="periodica">Periodică</option>
+            <option value="intrare">Intrare în fermă</option>
+            <option value="post_fatare">Post-fătare</option>
+            <option value="pre_vanzare">Pre-vânzare</option>
+          </select>
+        </div>
+      </div>
+      <!-- Preview SMZ calculat live -->
+      <div id="gr_smz_preview" class="info-box" style="display:none"></div>
+      <div class="form-group" style="margin-top:10px"><label class="form-label">Observații</label><textarea id="gr_obs" class="form-control" placeholder="Opțional..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalGreutate')">Anulează</button>
+      <button class="btn btn-primary" onclick="salveazaGreutate()">⚖️ Salvează cântărirea</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FURAJ -->
+<div class="modal-overlay" id="modalFuraj">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><div class="modal-title" id="titleFuraj">🌾 Adaugă / Actualizează furaj</div><button class="modal-close" onclick="closeModal('modalFuraj')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Denumire furaj *</label><input type="text" id="fj_nume" class="form-control" placeholder="ex: Fân lucernă"></div>
+        <div class="form-group"><label class="form-label">Tip furaj</label>
+          <select id="fj_tip" class="form-control">
+            <option value="fan">Fân</option><option value="siloz">Siloz porumb</option>
+            <option value="concentrate">Concentrate / Nutreț combinat</option>
+            <option value="pasune">Pășune (ha disponibil)</option>
+            <option value="paie">Paie</option><option value="srot">Șrot soia/floarea soarelui</option>
+            <option value="mineral">Premix mineral / Sare</option><option value="altul">Altul</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Cantitate în stoc *</label><input type="number" id="fj_stoc" class="form-control" placeholder="ex: 5000" step="0.1"></div>
+        <div class="form-group"><label class="form-label">Unitate de măsură</label>
+          <select id="fj_um" class="form-control">
+            <option value="kg">kg</option><option value="tone">tone</option>
+            <option value="baloți">baloți</option><option value="ha">ha (pășune)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Stoc minim alertă</label><input type="number" id="fj_stoc_minim" class="form-control" placeholder="ex: 500"></div>
+        <div class="form-group"><label class="form-label">Preț / unitate (RON)</label><input type="number" id="fj_pret" class="form-control" placeholder="ex: 0.85" step="0.01"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Observații / Furnizor</label><textarea id="fj_obs" class="form-control" placeholder="ex: Furnizor Agro SRL..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalFuraj')">Anulează</button>
+      <button class="btn btn-primary" onclick="salveazaFuraj()">🌾 Salvează furajul</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONSUM FURAJ -->
+<div class="modal-overlay" id="modalConsum">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header"><div class="modal-title">📉 Înregistrează consum furaj</div><button class="modal-close" onclick="closeModal('modalConsum')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Furaj *</label><select id="cons_furaj" class="form-control"></select></div>
+        <div class="form-group"><label class="form-label">Data *</label><input type="date" id="cons_data" class="form-control"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Cantitate consumată *</label><input type="number" id="cons_cantitate" class="form-control" placeholder="ex: 500" step="0.1"></div>
+        <div class="form-group"><label class="form-label">Categorie animale</label>
+          <select id="cons_categorie" class="form-control">
+            <option value="toate">Toate animalele</option>
+            <option value="vaca_adulta">Vaci adulte</option>
+            <option value="taur">Tauri</option>
+            <option value="tineret">Tineret</option>
+            <option value="vitei">Viței</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Observații</label><textarea id="cons_obs" class="form-control" placeholder="Opțional..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalConsum')">Anulează</button>
+      <button class="btn btn-primary" onclick="salveazaConsum()">💾 Salvează consumul</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MONTĂ -->
+<div class="modal-overlay" id="modalMonta">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">🔄 Înregistrează montă</div><button class="modal-close" onclick="closeModal('modalMonta')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Animal (femelă) *</label><select id="m_vaca" class="form-control"></select></div>
+        <div class="form-group"><label class="form-label">Tip montă</label><select id="m_tip" class="form-control"><option value="naturala">Montă naturală</option><option value="inseminare">Inseminare artificială</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Data montei *</label><input type="date" id="m_data" class="form-control"></div>
+        <div class="form-group"><label class="form-label">Taur / Material seminal</label><input type="text" id="m_taur" class="form-control" placeholder="ex: Charolaise Elite #A123"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Observații</label><textarea id="m_obs" class="form-control" placeholder="Observații..."></textarea></div>
+      <div class="info-box">📅 Remindere automate: <strong>21 zile</strong> (călduri), <strong>30 zile</strong> (confirmare), <strong>263 zile</strong> (maternitate), <strong>280 zile</strong> (fătare).</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalMonta')">Anulează</button>
+      <button class="btn btn-primary" onclick="salveazaMonta()">💾 Înregistrează</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TRATAMENT / SĂNĂTATE -->
+<div class="modal-overlay" id="modalTratament">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">💊 Înregistrare medicală</div><button class="modal-close" onclick="closeModal('modalTratament')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Animal *</label><select id="t_vaca" class="form-control"></select></div>
+        <div class="form-group"><label class="form-label">Tip *</label><select id="t_tip" class="form-control"><option value="tratament">Tratament</option><option value="vaccin">Vaccin</option><option value="deparazitare">Deparazitare</option><option value="consultatie">Consultație</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Diagnostic / Motiv</label><input type="text" id="t_diag" class="form-control" placeholder="ex: BRD, IBR, Hepatită..."></div>
+        <div class="form-group"><label class="form-label">Medicament / Produs</label><input type="text" id="t_med" class="form-control" placeholder="Denumire"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Doză</label><input type="text" id="t_doza" class="form-control" placeholder="ex: 20ml/zi"></div>
+        <div class="form-group"><label class="form-label">Durată (zile)</label><input type="number" id="t_durata" class="form-control" placeholder="7"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Data start *</label><input type="date" id="t_data" class="form-control"></div>
+        <div class="form-group"><label class="form-label">Data următoarei doze</label><input type="date" id="t_urmator" class="form-control"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Veterinar</label><input type="text" id="t_vet" class="form-control" placeholder="Numele veterinarului"></div>
+      <div class="form-group"><label class="form-label">Observații</label><textarea id="t_obs" class="form-control" placeholder="Simptome, evoluție..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalTratament')">Anulează</button>
+      <button class="btn btn-primary" onclick="salveazaTratament()">💾 Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITARE SĂNĂTATE -->
+<div class="modal-overlay" id="modalEditareSan">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">✏️ Editează înregistrare medicală</div><button class="modal-close" onclick="closeModal('modalEditareSan')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Tip</label><select id="es_tip" class="form-control"><option value="tratament">Tratament</option><option value="vaccin">Vaccin</option><option value="deparazitare">Deparazitare</option><option value="consultatie">Consultație</option></select></div>
+        <div class="form-group"><label class="form-label">Data *</label><input type="date" id="es_data" class="form-control"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Diagnostic / Motiv</label><input type="text" id="es_diag" class="form-control"></div>
+        <div class="form-group"><label class="form-label">Medicament / Produs</label><input type="text" id="es_med" class="form-control"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Doză</label><input type="text" id="es_doza" class="form-control"></div>
+        <div class="form-group"><label class="form-label">Durată (zile)</label><input type="number" id="es_durata" class="form-control"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Data următor</label><input type="date" id="es_urmator" class="form-control"></div>
+        <div class="form-group"><label class="form-label">Veterinar</label><input type="text" id="es_vet" class="form-control"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Observații</label><textarea id="es_obs" class="form-control"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalEditareSan')">Anulează</button>
+      <button class="btn btn-primary" onclick="salveazaEditareSan()">💾 Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMARE FĂTARE -->
+<div class="modal-overlay" id="modalFatare">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header"><div class="modal-title">🍼 Confirmare fătare</div><button class="modal-close" onclick="closeModal('modalFatare')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Data fătării *</label><input type="date" id="fat_data" class="form-control"></div>
+        <div class="form-group"><label class="form-label">Tip fătare</label><select id="fat_tip" class="form-control"><option value="normala">Normală</option><option value="dificila">Dificilă</option><option value="cezariana">Cezariană</option></select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Vițelul este viu?</label>
+        <select id="fat_viu" class="form-control" onchange="toggleVitelViu()">
+          <option value="viu">Da – viu și sănătos</option><option value="mort">Nu – mort</option>
+        </select>
+      </div>
+      <div id="fat_vitel_section">
+        <div style="background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:10px">
+          <div style="font-size:0.82rem;font-weight:700;color:var(--text-mid);margin-bottom:10px">Date vițel</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Sex vițel</label><select id="fat_sex" class="form-control"><option value="mascul">Mascul</option><option value="femela">Femelă</option></select></div>
+            <div class="form-group"><label class="form-label">Nume vițel</label><input type="text" id="fat_nume_vitel" class="form-control" placeholder="ex: Hector"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Nr. crotal vițel</label><input type="text" id="fat_crotal_vitel" class="form-control"></div>
+            <div class="form-group"><label class="form-label">Greutate la naștere (kg)</label><input type="number" id="fat_greutate" class="form-control" placeholder="ex: 40"></div>
+          </div>
+          <div class="form-group"><label class="form-label">Tată / taur</label><input type="text" id="fat_tata" class="form-control"></div>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:12px"><label class="form-label">Observații</label><textarea id="fat_obs" class="form-control"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalFatare')">Anulează</button>
+      <button class="btn btn-primary" onclick="salveazaFatare()">✅ Confirmă fătarea</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMARE CĂLDURI 30 ZILE -->
+<div class="modal-overlay" id="dlgCalduri">
+  <div class="confirm-box">
+    <div class="confirm-icon">🐄</div>
+    <div class="confirm-title">Confirmare obligatorie – 30 zile</div>
+    <div class="confirm-text" id="dlgCalduri-text">Animalul a manifestat semne de călduri?</div>
+    <div class="confirm-actions">
+      <button class="btn btn-danger" onclick="raspundeCalduri(true)">🔴 Da, a avut călduri</button>
+      <button class="btn btn-primary" onclick="raspundeCalduri(false)">✅ Nu → Gestantă</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MODIFICARE GESTAȚIE -->
+<div class="modal-overlay" id="modalModifGest">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header"><div class="modal-title">✏️ Modificare gestație</div><button class="modal-close" onclick="closeModal('modalModifGest')">✕</button></div>
+    <div class="modal-body">
+      <div class="info-box warning">⚠️ Posibilă până în luna 8 (240 zile). Folosiți în caz de avort sau eroare.</div>
+      <div class="form-group" style="margin-top:14px"><label class="form-label">Motiv</label>
+        <select id="mg_motiv" class="form-control"><option value="avort">Avort</option><option value="eroare">Eroare dată montă</option><option value="altul">Altul</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Nouă dată montă</label><input type="date" id="mg_data" class="form-control"></div>
+      <div class="form-group"><label class="form-label">Observații</label><textarea id="mg_obs" class="form-control" placeholder="Motivul modificării..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalModifGest')">Anulează</button>
+      <button class="btn btn-amber" onclick="salveazaModifGest()">✏️ Salvează</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VINDE / SCOATE VIȚEL -->
+<div class="modal-overlay" id="modalVindeVitelRapid">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><div class="modal-title">🐄 Vinde / Scoate vițel</div><button class="modal-close" onclick="closeModal('modalVindeVitelRapid')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Motiv ieșire *</label>
+        <select id="vvr_motiv" class="form-control"><option value="vandut">Vândut</option><option value="mort">Decedat</option><option value="reformat">Reformat</option><option value="altul">Alt motiv</option></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Data ieșirii *</label><input type="date" id="vvr_data" class="form-control"></div>
+        <div class="form-group"><label class="form-label">Preț vânzare (RON)</label><input type="number" id="vvr_pret" class="form-control" placeholder="ex: 2500"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Greutate la ieșire (kg)</label><input type="number" id="vvr_greutate" class="form-control" placeholder="ex: 240"></div>
+      <div class="form-group"><label class="form-label">Observații</label><textarea id="vvr_obs" class="form-control" placeholder="Opțional..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalVindeVitelRapid')">Anulează</button>
+      <button class="btn btn-danger" onclick="confirmVindeVitelRapid()">✅ Confirmă ieșirea</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FIȘĂ ANIMAL -->
+<div class="modal-overlay" id="modalFisa">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header"><div class="modal-title" id="fisaTitle">Fișă animal</div><button class="modal-close" onclick="closeModal('modalFisa')">✕</button></div>
+    <div class="modal-body" id="fisaBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalFisa')">Închide</button>
+      <button class="btn btn-amber btn-sm" onclick="openModalGreutateForAnimal()">⚖️ Cântărire</button>
+      <button class="btn btn-danger btn-sm" onclick="vindeAnimalActiv()">🏷️ Marchează vândut</button>
+      <button class="btn btn-primary" onclick="closeModal('modalFisa');openModalTratament()">+ Intervenție med.</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- JAVASCRIPT -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<script>
+// ─────────────────────────────────────────────────────────
+// CONFIGURARE SUPABASE
+// IMPORTANT: înlocuiți cu URL și KEY din proiectul vostru
+// de carne din Supabase (proiect separat față de cel de lapte)
+// ─────────────────────────────────────────────────────────
+const SUPA_URL = 'https://ylazqxkgxuplihkmwgjk.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsYXpxeGtneHVwbGloa213Z2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MTUyMzAsImV4cCI6MjA5MjA5MTIzMH0.SssrEpiNdeNATTdrBz8EK9PHuI-U3a2qB_lX1FtjCaU';
+const { createClient } = supabase;
+const db = createClient(SUPA_URL, SUPA_KEY);
+
+// ─── State global ───
+let currentUser = null;
+let currentAnimalId = null;  // înlocuiește currentVacaId
+let currentMontaId = null;
+let currentVitelId = null;
+let modifGestId = null;
+let calduriMontaId = null;
+let animaleList = [];  // înlocuiește vaciList – lista pentru dropdownuri
+let editMode = false;
+let editSanId = null;
+let editVitelId = null;
+let vindeVitelRapidId = null;
+let fatareMontaId = null;
+let fatareAnimalId = null;
+let editFurajId = null;
+
+// ─── Ceas ───
+function updateClock() {
+  const now = new Date();
+  const zile = ['Duminică','Luni','Marți','Miercuri','Joi','Vineri','Sâmbătă'];
+  const luni = ['Ian','Feb','Mar','Apr','Mai','Iun','Iul','Aug','Sep','Oct','Nov','Dec'];
+  const d = document.getElementById('clockDate');
+  const t = document.getElementById('clockTime');
+  if(d) d.textContent = `${zile[now.getDay()]}, ${now.getDate()} ${luni[now.getMonth()]} ${now.getFullYear()}`;
+  if(t) t.textContent = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── Auth ───
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+  if(!email||!pass){ showErr('Completați emailul și parola!'); return; }
+  const { data, error } = await db.auth.signInWithPassword({ email, password: pass });
+  if(error){ showErr('Email sau parolă incorecte!'); return; }
+  currentUser = data.user;
+  startApp(email);
+}
+function showErr(msg){ const e=document.getElementById('loginError'); e.textContent=msg; e.style.display='block'; }
+function startApp(email) {
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'block';
+  document.getElementById('userName').textContent = email.split('@')[0];
+  document.getElementById('userRole').textContent = 'Fermier carne';
+  initApp();
+}
+async function doLogout() {
+  await db.auth.signOut();
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('loginPage').style.display = 'flex';
+}
+window.addEventListener('load', async () => {
+  const { data:{ session } } = await db.auth.getSession();
+  if(session){ currentUser = session.user; startApp(session.user.email); }
+});
+
+async function initApp() {
+  await loadAnimaleList();
+  await loadDashboard();
+}
+
+// Încarcă lista pentru dropdownuri – include toate animalele active
+async function loadAnimaleList() {
+  const { data } = await db.from('vaci_lapte').select('id,nume,numar_crotal,categorie_carne').eq('activ',true).order('numar_crotal');
+  animaleList = data || [];
+}
+
+// ─── Navigare pagini ───
+const pageTitles = {
+  dashboard:'📊 Dashboard', animale:'🐂 Efectiv Animale', vitei:'🐄 Viței & Tineret',
+  greutati:'⚖️ Greutăți & SMZ', furaje:'🌾 Furaje & Rații',
+  reproductie:'🔄 Reproducție', sanatate:'💊 Sănătate', alerte:'🔔 Alerte',
+  'istoric-vitei':'📦 Istoric Viței', 'istoric-animale':'🗂️ Istoric Animale'
+};
+function showPage(name, el) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const pg = document.getElementById('page-'+name);
+  if(pg) pg.classList.add('active');
+  if(el) el.classList.add('active');
+  document.getElementById('topbarTitle').textContent = pageTitles[name]||name;
+  document.getElementById('sidebar').classList.remove('open');
+  if(name==='dashboard') loadDashboard();
+  if(name==='animale') loadAnimale();
+  if(name==='vitei') loadVitei();
+  if(name==='greutati') loadGreutati();
+  if(name==='furaje') loadFuraje();
+  if(name==='reproductie'){ loadMonte(); loadGestante(); loadIstoricMonte(); }
+  if(name==='sanatate') loadSanatate();
+  if(name==='alerte') loadAlerte();
+  if(name==='istoric-vitei') loadIstoricVitei();
+  if(name==='istoric-animale') loadIstoricAnimale();
+}
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+function switchTab(el, showId) {
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const allTabs=['tab-monte','tab-gestante','tab-istoric-monte','tab-trat','tab-vacc','tab-dep','tab-san-ist','tab-stoc-furaje','tab-ratii','tab-consum-ist'];
+  allTabs.forEach(id=>{ const e=document.getElementById(id); if(e) e.style.display=id===showId?'block':'none'; });
+}
+
+// ─── Utilități date ───
+function today() { return new Date().toISOString().split('T')[0]; }
+function addDays(dateStr,n) { const d=new Date(dateStr); d.setDate(d.getDate()+n); return d.toISOString().split('T')[0]; }
+function daysDiff(dateStr) { return Math.floor((new Date()-new Date(dateStr))/(1000*60*60*24)); }
+function formatDate(d) { if(!d) return '–'; const dt=new Date(d); return `${dt.getDate().toString().padStart(2,'0')}.${(dt.getMonth()+1).toString().padStart(2,'0')}.${dt.getFullYear()}`; }
+function getAge(an) { return new Date().getFullYear()-an; }
+
+// ─── Badge stare (specific fermă carne, fără lactație) ───
+function badgeStare(stare) {
+  const map={apta:'b-apta',gestanta:'b-gestanta',alaptare:'b-alaptare',ingrasat:'b-ingrasat',maternitate:'b-maternitate',tratament:'b-tratament',montata:'b-montata',vanduta:'b-vanduta',vanzare:'b-vanzare'};
+  const labels={apta:'Aptă / Liber',gestanta:'Gestantă',alaptare:'Alăptare',ingrasat:'La îngrășat',maternitate:'Maternitate',tratament:'Tratament',montata:'Montată',vanduta:'Vândut',vanzare:'Pre-vânzare'};
+  return `<span class="badge ${map[stare]||'b-apta'}">${labels[stare]||stare}</span>`;
+}
+
+// Badge categorie – vizual diferit pe categorie de animal
+function badgeCategorie(cat) {
+  const map={vaca_adulta:'b-cat-vaca',taur:'b-cat-taur',juninca:'b-cat-juninca',tineret_femela:'b-cat-tineret',tineret_mascul:'b-cat-tineret'};
+  const labels={vaca_adulta:'🐄 Vacă adultă',taur:'🐂 Taur',juninca:'Junincă',tineret_femela:'Tineret ♀',tineret_mascul:'Tineret ♂'};
+  return `<span class="badge ${map[cat]||'b-cat-vaca'}">${labels[cat]||cat||'–'}</span>`;
+}
+
+// SMZ colorat: bun / slab / negativ
+function smzBadge(smz) {
+  if(smz===null||smz===undefined) return '–';
+  const val = parseFloat(smz).toFixed(3);
+  const cls = smz >= 0.8 ? 'smz-bun' : smz >= 0 ? 'smz-slab' : 'smz-negativ';
+  return `<span class="${cls}">${val > 0 ? '+':''} ${val} kg/zi</span>`;
+}
+
+function progGest(zile) {
+  const pct=Math.min(Math.round((zile/283)*100),100);
+  const cls=pct>=95?'danger':pct>=88?'warn':'';
+  return `<div class="prog-wrap"><div class="prog-bar"><div class="prog-fill ${cls}" style="width:${pct}%"></div></div><div class="prog-info">${zile}/283 zile</div></div>`;
+}
+
+// ─────────────────────────────────────────────────────────
+// DASHBOARD
+// ─────────────────────────────────────────────────────────
+async function loadDashboard() {
+  // Efectiv total
+  const { count: total } = await db.from('vaci_lapte').select('*',{count:'exact',head:true}).eq('activ',true);
+  const { count: gestante } = await db.from('vaci_lapte').select('*',{count:'exact',head:true}).eq('activ',true).eq('stare','gestanta');
+  document.getElementById('s-animale').textContent = total||0;
+  document.getElementById('s-gestante').textContent = gestante||0;
+
+  // Greutate medie din ultima cântărire per animal
+  const { data: ultimeleGr } = await db.from('greutati').select('animal_id,greutate_kg').order('data',{ascending:false}).limit(500);
+  let grMedie = '–';
+  if(ultimeleGr && ultimeleGr.length) {
+    const vazute = new Set(); let suma=0, nr=0;
+    for(const g of ultimeleGr) {
+      if(!vazute.has(g.animal_id)){ vazute.add(g.animal_id); suma+=g.greutate_kg; nr++; }
+    }
+    grMedie = nr ? Math.round(suma/nr) : '–';
+  }
+  document.getElementById('s-greutate').textContent = grMedie;
+
+  // Alerte
+  const alerte = await calcAlerte();
+  document.getElementById('s-alerte').textContent = alerte.length;
+  document.getElementById('alertBadge').textContent = alerte.length;
+  document.getElementById('navAlertCount').textContent = alerte.length;
+  const daEl = document.getElementById('dashAlerte');
+  if(alerte.length===0){ daEl.innerHTML='<div class="loading">✅ Nu există alerte active</div>'; }
+  else {
+    daEl.innerHTML = alerte.slice(0,5).map(a=>`<div class="alert-item">
+      <div class="alert-dot ${a.nivel}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="alert-text"><strong>${a.animal}</strong>: ${a.icon} ${a.mesaj}</div>
+        <div class="alert-sub">${a.sub||''} ${a.actiune?`<span class="alert-action" onclick="${a.actiune}">→ Acțiune</span>`:''}</div>
+      </div></div>`).join('') +
+      (alerte.length>5?`<div style="text-align:center;padding:8px 0;font-size:0.8rem;border-top:1px solid var(--border)"><span class="alert-action" onclick="showPage('alerte',null)">+ ${alerte.length-5} alerte suplimentare →</span></div>`:'');
+  }
+
+  // Ultimele 5 cântăriri
+  const { data: gr5 } = await db.from('greutati').select('*,vaci_lapte(nume,numar_crotal)').order('data',{ascending:false}).limit(5);
+  const dashGr = document.getElementById('dashGreutati');
+  if(!gr5||gr5.length===0){
+    dashGr.innerHTML='<div style="padding:16px;text-align:center;color:var(--text-light);font-size:0.82rem">Nu există cântăriri. <span class="alert-action" onclick="openModalGreutate()">+ Adaugă prima</span></div>';
+  } else {
+    dashGr.innerHTML = gr5.map(g=>`<div class="alert-item">
+      <div class="alert-dot green"></div>
+      <div><div class="alert-text"><strong>${g.vaci_lapte?.numar_crotal||''} ${g.vaci_lapte?.nume||'–'}</strong>: <strong>${g.greutate_kg} kg</strong></div>
+      <div class="alert-sub">${formatDate(g.data)} · ${g.tip_cantarire||'periodică'}</div></div>
+    </div>`).join('');
+  }
+
+  // Stoc furaje în dashboard
+  const { data: furaje } = await db.from('furaje').select('*').eq('activ',true).order('tip');
+  const dashFj = document.getElementById('dashFuraje');
+  if(!furaje||furaje.length===0){
+    dashFj.innerHTML='<div style="padding:16px;text-align:center;color:var(--text-light);font-size:0.82rem">Nu există furaje înregistrate. <span class="alert-action" onclick="showPage(\'furaje\',null)">+ Adaugă</span></div>';
+  } else {
+    dashFj.innerHTML = furaje.slice(0,4).map(f=>{
+      const low = f.stoc_minim && f.stoc_curent <= f.stoc_minim;
+      return `<div class="alert-item">
+        <div class="alert-dot ${low?'red':'green'}"></div>
+        <div><div class="alert-text"><strong>${f.denumire}</strong>: <span class="${low?'smz-negativ':'smz-bun'}">${f.stoc_curent} ${f.um}</span></div>
+        <div class="alert-sub">${f.tip}${low?' · ⚠️ Sub stocul minim!':''}</div></div>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// EFECTIV ANIMALE
+// Tabelul principal – include categorie, rasă și ultima greutate
+// ─────────────────────────────────────────────────────────
+async function loadAnimale() {
+  const search = document.getElementById('searchAnimale')?.value?.toLowerCase()||'';
+  const cat = document.getElementById('filterCategorie')?.value||'';
+  const stare = document.getElementById('filterStare')?.value||'';
+  let q = db.from('vaci_lapte').select('*').eq('activ',true).order('numar_crotal');
+  if(cat) q = q.eq('categorie_carne',cat);
+  if(stare) q = q.eq('stare',stare);
+  const { data } = await q;
+  const tbody = document.getElementById('tblAnimale');
+  if(!data||data.length===0){ tbody.innerHTML='<tr><td colspan="10" class="loading">Nu există animale înregistrate</td></tr>'; return; }
+  const filtered = data.filter(v=>!search||v.nume?.toLowerCase().includes(search)||v.numar_crotal?.toLowerCase().includes(search));
+
+  // Aduc monte active și ultima greutate per animal
+  const { data: toateMonte } = await db.from('monte').select('*').eq('fatare_finalizata',false);
+  const ids = filtered.map(v=>v.id);
+  let ultimaGrMap = {};
+  if(ids.length>0){
+    const { data: grAll } = await db.from('greutati').select('animal_id,greutate_kg,data').in('animal_id',ids).order('data',{ascending:false});
+    if(grAll) grAll.forEach(g=>{ if(!ultimaGrMap[g.animal_id]) ultimaGrMap[g.animal_id]={kg:g.greutate_kg,data:g.data}; });
+  }
+  window._animaleRows = filtered;
+  tbody.innerHTML = filtered.map((v,idx)=>{
+    let ageStr='–', ageYears=0;
+    if(v.data_nastere){
+      const dn=new Date(v.data_nastere), now=new Date();
+      ageYears=now.getFullYear()-dn.getFullYear();
+      const luniDif=now.getMonth()-dn.getMonth()+(now.getDate()<dn.getDate()?-1:0);
+      const luniTotal=ageYears*12+luniDif;
+      if(luniTotal<12) ageStr=luniTotal+' luni';
+      else { const l=luniTotal%12; ageStr=ageYears+' ani'+(l>0?' '+l+'l':''); }
+    } else if(v.an_nastere) { ageYears=new Date().getFullYear()-v.an_nastere; ageStr=ageYears+' ani'; }
+
+    const m = toateMonte?.find(x=>x.vaca_id===v.id);
+    const zileMonta = m ? daysDiff(m.data_monta) : 0;
+    let gestHtml='–', stareAfisata=v.stare||'apta';
+    if(m){
+      if(m.gestanta_confirmata){ gestHtml=progGest(daysDiff(m.data_monta)); stareAfisata='gestanta'; }
+      else { gestHtml=`<span style="font-size:0.78rem;color:var(--blue);font-weight:600">Montată <strong>${zileMonta}</strong>z${zileMonta>=30?' 🚨':zileMonta>=21?' ⚠️':''}</span>`; stareAfisata='montata'; }
+    }
+    const ultimaGr = ultimaGrMap[v.id];
+    const grCell = ultimaGr ? `<strong>${ultimaGr.kg} kg</strong><br><span style="font-size:0.7rem;color:var(--text-light)">${formatDate(ultimaGr.data)}</span>` : '<span style="color:var(--text-light);font-size:0.78rem">–</span>';
+    const warn7 = ageYears>=7?'<span title="7+ ani" style="color:var(--amber)">⚠️</span>':'';
+    return `<tr>
+      <td><strong style="font-family:'IBM Plex Mono',monospace">${v.numar_crotal||'–'}</strong></td>
+      <td>${v.nume||'–'} ${warn7}</td>
+      <td>${badgeCategorie(v.categorie_carne)}</td>
+      <td style="font-size:0.8rem">${v.rasa||'–'}</td>
+      <td>${ageStr}</td>
+      <td style="text-align:center"><strong>${v.nr_fatari||0}</strong></td>
+      <td>${grCell}</td>
+      <td>${badgeStare(stareAfisata)}</td>
+      <td>${gestHtml}</td>
+      <td><div class="action-btns">
+        <button class="btn btn-secondary btn-sm" onclick="deschideFisa(${idx})">📋 Fișă</button>
+        <button class="btn btn-amber btn-sm" onclick="deschideEdit(${idx})">✏️</button>
+        <button class="btn btn-green btn-sm" onclick="openModalGreutateForId('${v.id}')">⚖️</button>
+        ${m&&m.gestanta_confirmata&&daysDiff(m.data_monta)>=280?`<button class="btn btn-primary btn-sm" onclick="openFatare('${m.id}','${v.id}')">🍼 Fătare</button>`:''}
+        <button class="btn btn-danger btn-sm" onclick="vindeAnimalById('${v.id}')">🏷️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function deschideFisa(idx){ const v=window._animaleRows&&window._animaleRows[idx]; if(v) openFisa(v); }
+function deschideEdit(idx){ const v=window._animaleRows&&window._animaleRows[idx]; if(v) openEditeazaAnimal(v); }
+
+// ─── Modal adaugă / editează animal ───
+function toggleGestAnimal(){ const s=document.getElementById('a_stare').value; document.getElementById('gestAnimalSection').style.display=(s==='gestanta'||s==='maternitate')?'block':'none'; }
+function toggleAnimalSex(){}
+
+async function salveazaAnimal() {
+  const crotal=document.getElementById('a_crotal').value.trim();
+  const dataNastere=document.getElementById('a_data_nastere').value;
+  if(!crotal||!dataNastere){ notif('Completați crotalul și data nașterii!','err'); return; }
+  const greutateInit=parseFloat(document.getElementById('a_greutate_init').value)||null;
+  const obj={
+    numar_crotal:crotal, nume:document.getElementById('a_nume').value||crotal,
+    categorie_carne:document.getElementById('a_categorie').value,
+    rasa:document.getElementById('a_rasa').value,
+    an_nastere:new Date(dataNastere).getFullYear(), data_nastere:dataNastere,
+    nr_fatari:parseInt(document.getElementById('a_fatari').value)||0,
+    stare:document.getElementById('a_stare').value,
+    observatii:document.getElementById('a_obs').value
+  };
+  let error, insertedId;
+  if(editMode && currentAnimalId){
+    const res=await db.from('vaci_lapte').update(obj).eq('id',currentAnimalId);
+    error=res.error; insertedId=currentAnimalId;
+  } else {
+    const res=await db.from('vaci_lapte').insert({...obj,activ:true,categorie:'vaca'}).select('id').single();
+    error=res.error; insertedId=res.data?.id;
+  }
+  if(error){ notif('Eroare: '+error.message,'err'); return; }
+  // Înregistrează greutatea inițială dacă a fost introdusă
+  if(greutateInit && insertedId){
+    await db.from('greutati').insert({ animal_id:insertedId, data:dataNastere>today()?today():dataNastere, greutate_kg:greutateInit, tip_cantarire:'intrare', observatii:'Greutate la înregistrare' });
+  }
+  editMode=false; currentAnimalId=null;
+  document.getElementById('titleAdaugaAnimal').textContent='🐂 Adaugă animal';
+  document.getElementById('btnSalveazaAnimal').textContent='💾 Salvează';
+  closeModal('modalAdaugaAnimal');
+  notif(`Animal ${obj.numar_crotal} salvat! 🐂`,'ok');
+  await loadAnimaleList(); loadAnimale(); loadDashboard();
+}
+
+function openEditeazaAnimal(v){
+  editMode=true; currentAnimalId=v.id;
+  document.getElementById('titleAdaugaAnimal').textContent='✏️ Editează animal';
+  document.getElementById('btnSalveazaAnimal').textContent='💾 Salvează modificările';
+  document.getElementById('a_crotal').value=v.numar_crotal||'';
+  document.getElementById('a_nume').value=v.nume||'';
+  document.getElementById('a_categorie').value=v.categorie_carne||'vaca_adulta';
+  document.getElementById('a_rasa').value=v.rasa||'Charolaise';
+  document.getElementById('a_data_nastere').value=v.data_nastere||(v.an_nastere?v.an_nastere+'-01-01':'');
+  document.getElementById('a_fatari').value=v.nr_fatari||0;
+  document.getElementById('a_stare').value=v.stare||'apta';
+  document.getElementById('a_obs').value=v.observatii||'';
+  document.getElementById('a_greutate_init').value='';
+  toggleGestAnimal();
+  openModal('modalAdaugaAnimal');
+}
+
+// ─────────────────────────────────────────────────────────
+// GREUTĂȚI & SMZ
+// SMZ = (greutate_curentă - greutate_anterioară) / zile_între_cântăriri
+// Este cel mai important indicator de performanță la carne
+// ─────────────────────────────────────────────────────────
+async function loadGreutati() {
+  const filterAnimal = document.getElementById('filterAnimalGr')?.value||'';
+
+  // Populează dropdown filtru animal
+  const selFiltru = document.getElementById('filterAnimalGr');
+  if(selFiltru && animaleList.length) {
+    const currentVal = selFiltru.value;
+    selFiltru.innerHTML = '<option value="">Toate animalele</option>' +
+      animaleList.map(a=>`<option value="${a.id}" ${a.id===currentVal?'selected':''}>${a.numar_crotal||''} – ${a.nume||'–'}</option>`).join('');
+  }
+
+  let q = db.from('greutati').select('*,vaci_lapte(id,nume,numar_crotal,categorie_carne)').order('data',{ascending:false}).limit(200);
+  if(filterAnimal) q = q.eq('animal_id',filterAnimal);
+  const { data: grAll, error } = await q;
+  const tbody = document.getElementById('tblGreutati');
+  if(error){ tbody.innerHTML=`<tr><td colspan="11" class="loading">Eroare: ${error.message}</td></tr>`; return; }
+  if(!grAll||grAll.length===0){ tbody.innerHTML='<tr><td colspan="11" class="loading">Nu există cântăriri înregistrate. Apăsați "+ Înregistrează cântărire" pentru prima.</td></tr>'; calcSumarGreutati([]); return; }
+
+  // Grupez pe animal pentru a calcula SMZ față de cântărirea precedentă
+  const peAnimal = {};
+  grAll.forEach(g=>{ if(!peAnimal[g.animal_id]) peAnimal[g.animal_id]=[]; peAnimal[g.animal_id].push(g); });
+
+  tbody.innerHTML = grAll.map(g=>{
+    const lista = peAnimal[g.animal_id];
+    const idx = lista.findIndex(x=>x.id===g.id);
+    const prev = lista[idx+1]; // precedenta (mai veche)
+    let smzVal=null, prevGr='–', zileIntre='–';
+    if(prev){
+      const z = Math.floor((new Date(g.data)-new Date(prev.data))/(1000*60*60*24));
+      if(z>0){ smzVal=(g.greutate_kg-prev.greutate_kg)/z; zileIntre=z; prevGr=prev.greutate_kg+' kg'; }
+    }
+    const dif = prev ? `<span class="${g.greutate_kg>=prev.greutate_kg?'smz-bun':'smz-negativ'}">${g.greutate_kg>=prev.greutate_kg?'+':''}${(g.greutate_kg-prev.greutate_kg).toFixed(1)} kg</span>` : '–';
+    return `<tr>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:0.78rem">${formatDate(g.data)}</td>
+      <td><strong>${g.vaci_lapte?.numar_crotal||''}</strong> ${g.vaci_lapte?.nume||'–'}</td>
+      <td>${badgeCategorie(g.vaci_lapte?.categorie_carne)}</td>
+      <td><strong style="font-size:1rem">${g.greutate_kg} kg</strong></td>
+      <td style="color:var(--text-light);font-size:0.82rem">${prevGr}</td>
+      <td>${dif}</td>
+      <td style="text-align:center;color:var(--text-light)">${zileIntre}</td>
+      <td>${smzBadge(smzVal)}</td>
+      <td><span class="tag tag-greutate">${g.tip_cantarire||'periodică'}</span></td>
+      <td style="font-size:0.78rem;color:var(--text-mid)">${g.observatii||'–'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="stergeGreutate('${g.id}')">🗑️</button></td>
+    </tr>`;
+  }).join('');
+
+  calcSumarGreutati(grAll, peAnimal);
+}
+
+function calcSumarGreutati(grAll, peAnimal) {
+  const el = document.getElementById('sumarGreutati');
+  if(!grAll||grAll.length===0){ el.innerHTML='<div style="color:var(--text-light);font-size:0.85rem;padding:8px 0">Nu există date suficiente pentru sumar.</div>'; return; }
+
+  // Ultima greutate per animal
+  const ultimaPerAnimal = {};
+  grAll.forEach(g=>{ if(!ultimaPerAnimal[g.animal_id]) ultimaPerAnimal[g.animal_id]=g; });
+  const valori = Object.values(ultimaPerAnimal).map(g=>g.greutate_kg);
+  const grMed = valori.length ? (valori.reduce((a,b)=>a+b,0)/valori.length).toFixed(1) : '–';
+  const grMax = valori.length ? Math.max(...valori) : '–';
+  const grMin = valori.length ? Math.min(...valori) : '–';
+
+  // SMZ mediu din toate înregistrările care au calcul
+  let smzValori = [];
+  if(peAnimal) Object.values(peAnimal).forEach(lista=>{
+    lista.forEach((g,idx)=>{
+      const prev=lista[idx+1];
+      if(prev){ const z=Math.floor((new Date(g.data)-new Date(prev.data))/(1000*60*60*24)); if(z>0) smzValori.push((g.greutate_kg-prev.greutate_kg)/z); }
+    });
+  });
+  const smzMed = smzValori.length ? (smzValori.reduce((a,b)=>a+b,0)/smzValori.length).toFixed(3) : null;
+
+  el.innerHTML = `<div class="gr-sumar-grid">
+    <div class="gr-sumar-card"><div class="gr-sumar-label">Greutate medie</div><div class="gr-sumar-value">${grMed} <span style="font-size:1rem">kg</span></div><div class="gr-sumar-sub">${valori.length} animale cântărite</div></div>
+    <div class="gr-sumar-card"><div class="gr-sumar-label">Greutate maximă</div><div class="gr-sumar-value">${grMax} <span style="font-size:1rem">kg</span></div><div class="gr-sumar-sub">cel mai greu animal</div></div>
+    <div class="gr-sumar-card"><div class="gr-sumar-label">Greutate minimă</div><div class="gr-sumar-value">${grMin} <span style="font-size:1rem">kg</span></div><div class="gr-sumar-sub">cel mai ușor animal</div></div>
+    <div class="gr-sumar-card"><div class="gr-sumar-label">SMZ mediu efectiv</div>
+      <div class="gr-sumar-value ${smzMed>=0.8?'smz-bun':smzMed>=0?'smz-slab':'smz-negativ'}">${smzMed!==null?(smzMed>=0?'+':'')+smzMed:'–'} <span style="font-size:0.9rem">kg/zi</span></div>
+      <div class="gr-sumar-sub">${smzMed>=1.2?'✅ Excelent':smzMed>=0.8?'👍 Bun':smzMed>=0.5?'⚠️ Sub medie':'❌ Slab'}</div>
+    </div>
+  </div>`;
+}
+
+async function openModalGreutate() {
+  await loadAnimaleList();
+  const sel = document.getElementById('gr_animal');
+  sel.innerHTML = animaleList.map(a=>`<option value="${a.id}">${a.numar_crotal||''} – ${a.nume||'–'}</option>`).join('');
+  document.getElementById('gr_data').value = today();
+  document.getElementById('gr_kg').value = '';
+  document.getElementById('gr_obs').value = '';
+  document.getElementById('gr_smz_preview').style.display='none';
+  document.getElementById('titleGreutate').textContent = '⚖️ Înregistrează cântărire';
+  openModal('modalGreutate');
+}
+
+async function openModalGreutateForId(animalId) {
+  await openModalGreutate();
+  document.getElementById('gr_animal').value = animalId;
+  await previewSmzModal();
+}
+async function openModalGreutateForAnimal() { if(currentAnimalId) await openModalGreutateForId(currentAnimalId); }
+
+// Preview SMZ în timp real în modal
+async function previewSmzModal() {
+  const animalId = document.getElementById('gr_animal').value;
+  const kg = parseFloat(document.getElementById('gr_kg').value);
+  const data = document.getElementById('gr_data').value;
+  const prev_el = document.getElementById('gr_smz_preview');
+  if(!animalId||!kg||!data){ prev_el.style.display='none'; return; }
+  // Caută ultima cântărire a acestui animal
+  const { data: lastGr } = await db.from('greutati').select('greutate_kg,data').eq('animal_id',animalId).order('data',{ascending:false}).limit(1).maybeSingle();
+  if(!lastGr){ prev_el.style.display='none'; return; }
+  const zile = Math.floor((new Date(data)-new Date(lastGr.data))/(1000*60*60*24));
+  if(zile<=0){ prev_el.style.display='none'; return; }
+  const smz = (kg-lastGr.greutate_kg)/zile;
+  const dif = kg-lastGr.greutate_kg;
+  prev_el.style.display='block';
+  prev_el.className = `info-box ${smz>=0.8?'success':smz>=0?'':'warning'}`;
+  prev_el.innerHTML = `⚖️ Față de ultima cântărire (${lastGr.greutate_kg} kg · ${formatDate(lastGr.data)}): <strong>${dif>=0?'+':''}${dif.toFixed(1)} kg</strong> în <strong>${zile} zile</strong> → SMZ: <strong>${smz>=0?'+':''}${smz.toFixed(3)} kg/zi</strong> ${smz>=1.2?'✅ Excelent':smz>=0.8?'👍 Bun':smz>=0.5?'⚠️ Sub medie':'❌ Slab'}`;
+}
+
+async function salveazaGreutate() {
+  const animalId = document.getElementById('gr_animal').value;
+  const kg = parseFloat(document.getElementById('gr_kg').value);
+  const data = document.getElementById('gr_data').value;
+  if(!animalId||!kg||!data){ notif('Completați animalul, greutatea și data!','err'); return; }
+  const { error } = await db.from('greutati').insert({ animal_id:animalId, greutate_kg:kg, data, tip_cantarire:document.getElementById('gr_tip').value, observatii:document.getElementById('gr_obs').value||null });
+  if(error){ notif('Eroare: '+error.message,'err'); return; }
+  closeModal('modalGreutate');
+  notif(`Cântărire înregistrată: ${kg} kg ⚖️`,'ok');
+  loadDashboard(); if(document.getElementById('page-greutati').classList.contains('active')) loadGreutati();
+}
+
+async function stergeGreutate(id) {
+  if(!confirm('Ștergeți această înregistrare de greutate?')) return;
+  await db.from('greutati').delete().eq('id',id);
+  notif('Înregistrare ștearsă.','warn');
+  loadGreutati();
+}
+
+// ─────────────────────────────────────────────────────────
+// FURAJE & RAȚII
+// Gestionare stoc + consum zilnic
+// ─────────────────────────────────────────────────────────
+async function loadFuraje() {
+  const { data, error } = await db.from('furaje').select('*').eq('activ',true).order('tip');
+  const { data: consumIst } = await db.from('consum_furaje').select('*,furaje(denumire)').order('data',{ascending:false}).limit(50);
+  const lista = document.getElementById('listaFuraje');
+  if(!data||data.length===0){
+    lista.innerHTML=`<div class="card"><div class="card-body" style="text-align:center;padding:32px;color:var(--text-light)">
+      <div style="font-size:2rem;margin-bottom:8px">🌾</div>
+      Nu există furaje înregistrate. <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="openModalFuraj()">+ Adaugă primul furaj</button>
+    </div></div>`;
+  } else {
+    const tipIcons={fan:'🌿',siloz:'🌽',concentrate:'🌾',pasune:'🏕️',paie:'🪵',srot:'🫘',mineral:'💊',altul:'📦'};
+    lista.innerHTML = data.map(f=>{
+      const low = f.stoc_minim && f.stoc_curent <= f.stoc_minim;
+      const pctStoc = f.stoc_minim ? Math.min(100,Math.round((f.stoc_curent/f.stoc_minim)*100)) : null;
+      return `<div class="furaj-card ${low?'border-danger':''}">
+        <div style="font-size:1.8rem;margin-right:4px">${tipIcons[f.tip]||'📦'}</div>
+        <div class="furaj-info">
+          <div class="furaj-name">${f.denumire}</div>
+          <div class="furaj-meta">${f.tip}${f.pret_unitate?' · '+f.pret_unitate+' RON/'+f.um:''}${f.observatii?' · '+f.observatii:''}</div>
+          ${pctStoc!==null?`<div style="margin-top:6px"><div class="prog-bar"><div class="prog-fill ${low?'danger':pctStoc<50?'warn':''}" style="width:${pctStoc}%"></div></div><div class="prog-info">Stoc minim: ${f.stoc_minim} ${f.um}</div></div>`:''}
+          ${low?'<div style="color:var(--red);font-size:0.78rem;font-weight:700;margin-top:4px">⚠️ Sub stocul minim! Reaprovizionați.</div>':''}
+        </div>
+        <div class="furaj-stoc">
+          <div class="furaj-stoc-val ${low?'low':'ok'}">${f.stoc_curent}</div>
+          <div style="font-size:0.72rem;color:var(--text-light)">${f.um}</div>
+          <div style="margin-top:8px;display:flex;gap:4px;flex-direction:column">
+            <button class="btn btn-sm btn-secondary" onclick="openEditFuraj('${f.id}')">✏️</button>
+            <button class="btn btn-sm btn-primary" onclick="openModalConsumPentru('${f.id}')">📉 Consum</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  const tblConsum = document.getElementById('tblConsumIst');
+  if(consumIst&&consumIst.length>0){
+    tblConsum.innerHTML=consumIst.map(c=>`<tr>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:0.78rem">${formatDate(c.data)}</td>
+      <td><strong>${c.furaje?.denumire||'–'}</strong></td>
+      <td><strong>${c.cantitate_consumata}</strong> ${c.um_consum||''}</td>
+      <td>${c.categorie_animale||'toate'}</td>
+      <td style="font-size:0.78rem;color:var(--text-mid)">${c.observatii||'–'}</td>
+    </tr>`).join('');
+  } else {
+    tblConsum.innerHTML='<tr><td colspan="5" class="loading">Nu există înregistrări de consum</td></tr>';
+  }
+}
+
+async function openModalFuraj() {
+  editFurajId = null;
+  document.getElementById('titleFuraj').textContent = '🌾 Adaugă furaj';
+  ['fj_nume','fj_tip','fj_stoc','fj_um','fj_stoc_minim','fj_pret','fj_obs'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=el.tagName==='SELECT'?el.options[0].value:''; });
+  openModal('modalFuraj');
+}
+async function openEditFuraj(id) {
+  editFurajId = id;
+  const { data: f } = await db.from('furaje').select('*').eq('id',id).single();
+  if(!f){ notif('Furajul nu a fost găsit!','err'); return; }
+  document.getElementById('titleFuraj').textContent = '✏️ Editează furaj';
+  document.getElementById('fj_nume').value=f.denumire||'';
+  document.getElementById('fj_tip').value=f.tip||'fan';
+  document.getElementById('fj_stoc').value=f.stoc_curent||0;
+  document.getElementById('fj_um').value=f.um||'kg';
+  document.getElementById('fj_stoc_minim').value=f.stoc_minim||'';
+  document.getElementById('fj_pret').value=f.pret_unitate||'';
+  document.getElementById('fj_obs').value=f.observatii||'';
+  openModal('modalFuraj');
+}
+async function salveazaFuraj() {
+  const denumire=document.getElementById('fj_nume').value.trim();
+  const stoc=parseFloat(document.getElementById('fj_stoc').value);
+  if(!denumire||isNaN(stoc)){ notif('Completați denumirea și cantitatea!','err'); return; }
+  const obj={
+    denumire, tip:document.getElementById('fj_tip').value,
+    stoc_curent:stoc, um:document.getElementById('fj_um').value,
+    stoc_minim:parseFloat(document.getElementById('fj_stoc_minim').value)||null,
+    pret_unitate:parseFloat(document.getElementById('fj_pret').value)||null,
+    observatii:document.getElementById('fj_obs').value||null, activ:true
+  };
+  let error;
+  if(editFurajId){ const r=await db.from('furaje').update(obj).eq('id',editFurajId); error=r.error; }
+  else { const r=await db.from('furaje').insert(obj); error=r.error; }
+  if(error){ notif('Eroare: '+error.message,'err'); return; }
+  closeModal('modalFuraj'); notif('Furaj salvat! 🌾','ok'); loadFuraje(); loadDashboard();
+}
+async function openModalConsum() {
+  const { data: furaje } = await db.from('furaje').select('id,denumire,um').eq('activ',true);
+  const sel=document.getElementById('cons_furaj');
+  sel.innerHTML=(furaje||[]).map(f=>`<option value="${f.id}">${f.denumire} (${f.um})</option>`).join('');
+  document.getElementById('cons_data').value=today();
+  openModal('modalConsum');
+}
+async function openModalConsumPentru(furajId) { await openModalConsum(); document.getElementById('cons_furaj').value=furajId; }
+async function salveazaConsum() {
+  const furajId=document.getElementById('cons_furaj').value;
+  const cant=parseFloat(document.getElementById('cons_cantitate').value);
+  const data=document.getElementById('cons_data').value;
+  if(!furajId||isNaN(cant)||!data){ notif('Completați toate câmpurile obligatorii!','err'); return; }
+  // Scade din stoc
+  const { data: fj } = await db.from('furaje').select('stoc_curent,um').eq('id',furajId).single();
+  const nouStoc = (fj?.stoc_curent||0) - cant;
+  await db.from('furaje').update({stoc_curent:Math.max(0,nouStoc)}).eq('id',furajId);
+  await db.from('consum_furaje').insert({ furaj_id:furajId, data, cantitate_consumata:cant, um_consum:fj?.um||'kg', categorie_animale:document.getElementById('cons_categorie').value, observatii:document.getElementById('cons_obs').value||null });
+  closeModal('modalConsum'); notif('Consum înregistrat și stoc actualizat!','ok'); loadFuraje(); loadDashboard();
+}
+
+// ─────────────────────────────────────────────────────────
+// VIȚEI
+// ─────────────────────────────────────────────────────────
+async function loadVitei() {
+  const { data: fatari, error } = await db.from('fatari').select('*').eq('vitel_vandut',false).order('data_fatare',{ascending:false});
+  const tbody = document.getElementById('tblVitei');
+  if(error){ tbody.innerHTML=`<tr><td colspan="9" class="loading">Eroare: ${error.message}</td></tr>`; return; }
+  if(!fatari||fatari.length===0){ tbody.innerHTML='<tr><td colspan="9" class="loading">Nu există viței în fermă</td></tr>'; return; }
+  const vacaIds=[...new Set(fatari.map(f=>f.vaca_id).filter(Boolean))];
+  let vaciMap={};
+  if(vacaIds.length>0){
+    const { data: vd } = await db.from('vaci_lapte').select('id,nume,numar_crotal').in('id',vacaIds);
+    if(vd) vd.forEach(v=>vaciMap[v.id]=v);
+  }
+  // Ultima greutate per vițel
+  const viteiIds = fatari.map(f=>f.id).filter(Boolean);
+  let grViteiMap = {};
+  if(viteiIds.length>0){
+    const { data: grV } = await db.from('greutati').select('animal_id,greutate_kg,data').in('animal_id',viteiIds).order('data',{ascending:false});
+    if(grV) grV.forEach(g=>{ if(!grViteiMap[g.animal_id]) grViteiMap[g.animal_id]=g; });
+  }
+  // Verificare automată promovare la 18 luni
+  for(const f of fatari){
+    if(f.sex_vitel==='femela'&&f.data_fatare){
+      const zile=daysDiff(f.data_fatare);
+      if(zile>=548&&!f.promovat_vaca){
+        await db.from('vaci_lapte').insert({
+          nume:f.nume_vitel||'Junincă #'+f.id, numar_crotal:f.crotal_vitel||'',
+          rasa:'Necunoscută', an_nastere:new Date(f.data_fatare).getFullYear(), data_nastere:f.data_fatare,
+          nr_fatari:0, stare:'apta', activ:true, categorie:'vaca', categorie_carne:'juninca',
+          observatii:`Promovată automat din viței (mama: ${vaciMap[f.vaca_id]?.nume||'–'})`
+        });
+        await db.from('fatari').update({promovat_vaca:true,vitel_vandut:true,vandut_confirmat:true}).eq('id',f.id);
+        notif(`🐄 ${f.nume_vitel||'Junincă'} a împlinit 18 luni și a fost mutată la Junince!`,'ok');
+      }
+    }
+  }
+  const { data: fatariActualizate } = await db.from('fatari').select('*').eq('vitel_vandut',false).order('data_fatare',{ascending:false});
+  const lista = fatariActualizate||fatari;
+  tbody.innerHTML = lista.map(f=>{
+    const vaca=vaciMap[f.vaca_id]||{};
+    const zile=daysDiff(f.data_fatare);
+    const luni=Math.floor(zile/30);
+    const grVitel=grViteiMap[f.id];
+    let stareVitel='';
+    if(luni>=18&&f.sex_vitel==='femela') stareVitel='<span class="badge b-apta">🐄 Aptă montă</span>';
+    else if(luni>=12) stareVitel=`<span class="badge b-ingrasat">${luni}l – La îngrășat</span>`;
+    else stareVitel=`<span class="badge b-alaptare">${luni}l ${zile%30}z</span>`;
+    return `<tr>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:0.78rem">${formatDate(f.data_fatare)}</td>
+      <td><span class="badge ${f.sex_vitel==='mascul'?'b-mascul':'b-femela'}">${f.sex_vitel==='mascul'?'🐂 Mascul':'🐄 Femelă'}</span></td>
+      <td><strong>${f.nume_vitel||'–'}</strong> <span style="font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--text-light)">${f.crotal_vitel||''}</span></td>
+      <td>${vaca.numar_crotal||''} ${vaca.nume||'–'}</td>
+      <td style="font-size:0.78rem;color:var(--text-mid)">${f.informatii_tata||'–'}</td>
+      <td>${luni} luni ${zile%30} zile</td>
+      <td>${grVitel?`<strong>${grVitel.greutate_kg} kg</strong><br><span style="font-size:0.7rem;color:var(--text-light)">${formatDate(grVitel.data)}</span>`:f.greutate_vitel?`${f.greutate_vitel} kg (naștere)`:'–'}</td>
+      <td>${stareVitel}</td>
+      <td><div class="action-btns">
+        <button class="btn btn-danger btn-sm" onclick="deschideVindeVitel('${f.id}')">🏷️ Vinde</button>
+        <button class="btn btn-green btn-sm" onclick="openModalGreutateForId('${f.id}')">⚖️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+async function openModalVitel() {
+  await loadAnimaleList();
+  editVitelId = null;
+  const sel=document.getElementById('vit_mama');
+  sel.innerHTML='<option value="">Fără mamă înregistrată</option>'+animaleList.filter(a=>['vaca_adulta','juninca'].includes(a.categorie_carne)||!a.categorie_carne).map(a=>`<option value="${a.id}">${a.numar_crotal||''} – ${a.nume}</option>`).join('');
+  document.getElementById('vit_data').value=today();
+  document.getElementById('titleVitel').textContent='🐄 Adaugă vițel';
+  document.getElementById('btnSalveazaVitel').textContent='💾 Salvează';
+  ['vit_nume','vit_crotal','vit_tata','vit_obs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('vit_greutate').value='';
+  openModal('modalAdaugaVitel');
+}
+
+async function salveazaVitel() {
+  const data=document.getElementById('vit_data').value;
+  if(!data){ notif('Completați data nașterii!','err'); return; }
+  const vandutInit=document.getElementById('vit_vandut_init').value==='true';
+  const greutate=parseFloat(document.getElementById('vit_greutate').value)||null;
+  const obj={
+    vaca_id:document.getElementById('vit_mama').value||null, data_fatare:data,
+    sex_vitel:document.getElementById('vit_sex').value,
+    nume_vitel:document.getElementById('vit_nume').value||null,
+    crotal_vitel:document.getElementById('vit_crotal').value||null,
+    greutate_vitel:greutate, vitel_sanatos:document.getElementById('vit_sanatate').value==='true',
+    informatii_tata:document.getElementById('vit_tata').value,
+    observatii:document.getElementById('vit_obs').value,
+    vitel_vandut:vandutInit, vitel_ramas_ferma:false, vandut_confirmat:vandutInit,
+    data_vanzare_vitel:vandutInit?today():null
+  };
+  let error, insertedId;
+  if(editVitelId){
+    const r=await db.from('fatari').update(obj).eq('id',editVitelId); error=r.error;
+  } else {
+    const r=await db.from('fatari').insert(obj).select('id').single(); error=r.error; insertedId=r.data?.id;
+  }
+  if(error){ notif('Eroare: '+error.message,'err'); return; }
+  // Înregistrează greutatea la naștere
+  if(greutate && insertedId){
+    await db.from('greutati').insert({ animal_id:insertedId, data, greutate_kg:greutate, tip_cantarire:'intrare', observatii:'Greutate la naștere' });
+  }
+  editVitelId=null; closeModal('modalAdaugaVitel'); notif('Vițelul a fost adăugat! 🐄','ok'); loadVitei();
+}
+
+function deschideVindeVitel(id){
+  vindeVitelRapidId=id;
+  document.getElementById('vvr_data').value=today();
+  document.getElementById('vvr_motiv').value='vandut';
+  document.getElementById('vvr_pret').value='';
+  document.getElementById('vvr_greutate').value='';
+  document.getElementById('vvr_obs').value='';
+  openModal('modalVindeVitelRapid');
+}
+
+async function confirmVindeVitelRapid() {
+  if(!vindeVitelRapidId) return;
+  const motiv=document.getElementById('vvr_motiv').value;
+  const dt=document.getElementById('vvr_data').value;
+  const pret=document.getElementById('vvr_pret').value;
+  const grVanzare=parseFloat(document.getElementById('vvr_greutate').value)||null;
+  const obs=document.getElementById('vvr_obs').value;
+  if(!dt){ notif('Completați data ieșirii!','err'); return; }
+  const obsComplet=[obs,pret?`Preț: ${pret} RON`:'',grVanzare?`Greutate vânzare: ${grVanzare} kg`:''].filter(Boolean).join(' | ');
+  await db.from('fatari').update({vitel_vandut:true,vandut_confirmat:true,data_vanzare_vitel:dt,observatii:obsComplet||null}).eq('id',vindeVitelRapidId);
+  // Înregistrează greutatea la vânzare
+  if(grVanzare){ await db.from('greutati').insert({animal_id:vindeVitelRapidId,data:dt,greutate_kg:grVanzare,tip_cantarire:'pre_vanzare',observatii:`Greutate la ${motiv}`}); }
+  closeModal('modalVindeVitelRapid');
+  notif(`${({vandut:'Vândut',mort:'Decedat',reformat:'Reformat',altul:'Ieșit'}[motiv]||motiv)} cu succes!`,'ok');
+  loadVitei();
+}
+
+async function loadIstoricVitei() {
+  const { data: fatari } = await db.from('fatari').select('*').eq('vitel_vandut',true).order('data_vanzare_vitel',{ascending:false});
+  const tbody=document.getElementById('tblIstoricVitei');
+  if(!fatari||fatari.length===0){ tbody.innerHTML='<tr><td colspan="9" class="loading">Nu există viței în istoric</td></tr>'; return; }
+  const vacaIds=[...new Set(fatari.map(f=>f.vaca_id).filter(Boolean))];
+  let vaciMap={};
+  if(vacaIds.length>0){
+    const { data: vd } = await db.from('vaci_lapte').select('id,nume,numar_crotal').in('id',vacaIds);
+    if(vd) vd.forEach(v=>vaciMap[v.id]=v);
+  }
+  tbody.innerHTML=fatari.map(f=>{
+    const vaca=vaciMap[f.vaca_id]||{};
+    const zile=f.data_vanzare_vitel&&f.data_fatare?Math.floor((new Date(f.data_vanzare_vitel)-new Date(f.data_fatare))/86400000):daysDiff(f.data_fatare);
+    return `<tr>
+      <td>${formatDate(f.data_fatare)}</td>
+      <td><span class="badge ${f.sex_vitel==='mascul'?'b-mascul':'b-femela'}">${f.sex_vitel==='mascul'?'🐂 M':'🐄 F'}</span></td>
+      <td><strong>${f.nume_vitel||'–'}</strong> <span style="font-size:0.72rem;color:var(--text-light)">${f.crotal_vitel||''}</span></td>
+      <td>${vaca.numar_crotal||''} ${vaca.nume||'–'}</td>
+      <td>${Math.floor(zile/30)} luni ${zile%30}z</td>
+      <td>–</td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:0.78rem">${formatDate(f.data_vanzare_vitel)}</td>
+      <td><span class="badge b-vanduta">Ieșit</span></td>
+      <td style="font-size:0.78rem;color:var(--text-mid)">${f.observatii||'–'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────────────────
+// REPRODUCȚIE
+// ─────────────────────────────────────────────────────────
+async function openModalMonta() {
+  await loadAnimaleList();
+  const sel=document.getElementById('m_vaca');
+  // Doar femelele (nu tauri)
+  sel.innerHTML=animaleList.filter(a=>a.categorie_carne!=='taur').map(a=>`<option value="${a.id}">${a.numar_crotal||''} – ${a.nume}</option>`).join('');
+  document.getElementById('m_data').value=today();
+  openModal('modalMonta');
+}
+
+async function salveazaMonta() {
+  const vacaId=document.getElementById('m_vaca').value;
+  const data=document.getElementById('m_data').value;
+  if(!vacaId||!data){ notif('Selectați animalul și data montei!','err'); return; }
+  const { error } = await db.from('monte').insert({vaca_id:vacaId,data_monta:data,tip_monta:document.getElementById('m_tip').value,informatii_taur:document.getElementById('m_taur').value,observatii:document.getElementById('m_obs').value,gestanta_confirmata:false,fatare_finalizata:false});
+  if(error){ notif('Eroare: '+error.message,'err'); return; }
+  await db.from('vaci_lapte').update({stare:'montata'}).eq('id',vacaId);
+  closeModal('modalMonta'); notif('Montă înregistrată! 🔄','ok'); loadDashboard(); loadMonte();
+}
+
+async function loadMonte() {
+  const { data, error } = await db.from('monte').select('*').eq('gestanta_confirmata',false).eq('fatare_finalizata',false).order('data_monta',{ascending:false});
+  const tbody=document.getElementById('tblMonte');
+  if(error||!data||data.length===0){ tbody.innerHTML='<tr><td colspan="8" class="loading">Nu există monte active</td></tr>'; return; }
+  const vacaIds=[...new Set(data.map(m=>m.vaca_id).filter(Boolean))];
+  let vaciMap={};
+  if(vacaIds.length>0){ const { data: vd } = await db.from('vaci_lapte').select('id,nume,numar_crotal').in('id',vacaIds); if(vd) vd.forEach(v=>vaciMap[v.id]=v); }
+  tbody.innerHTML=data.map(m=>{
+    const v=vaciMap[m.vaca_id]||{}; const z=daysDiff(m.data_monta);
+    return `<tr>
+      <td><strong>${v.numar_crotal||''} – ${v.nume||'–'}</strong></td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:0.78rem">${formatDate(m.data_monta)}</td>
+      <td><strong style="color:${z>=30?'var(--red)':z>=21?'var(--amber)':'inherit'}">${z}</strong></td>
+      <td style="font-size:0.78rem">${m.informatii_taur||'–'}</td>
+      <td style="font-size:0.78rem">${z>=21?'<span style="color:var(--amber)">⚠️ Verificați</span>':formatDate(addDays(m.data_monta,21))}</td>
+      <td style="font-size:0.78rem">${z>=30?'<span style="color:var(--red);font-weight:700">🚨 ACUM</span>':formatDate(addDays(m.data_monta,30))}</td>
+      <td>${z>=30?'<span class="badge b-gestanta">🚨 Confirmare</span>':z>=21?'<span class="badge b-tratament">⚠️ Călduri</span>':'<span class="badge b-apta">Așteptare</span>'}</td>
+      <td><button class="btn btn-primary btn-sm" onclick="deschideCalduri('${m.id}','${v.nume||''}')">Confirmă</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadGestante() {
+  const { data, error } = await db.from('monte').select('*').eq('gestanta_confirmata',true).eq('fatare_finalizata',false).order('data_monta');
+  const tbody=document.getElementById('tblGestante');
+  if(error||!data||data.length===0){ tbody.innerHTML='<tr><td colspan="7" class="loading">Nu există animale gestante</td></tr>'; return; }
+  const vacaIds=[...new Set(data.map(m=>m.vaca_id).filter(Boolean))];
+  let vaciMap={};
+  if(vacaIds.length>0){ const { data: vd } = await db.from('vaci_lapte').select('id,nume,numar_crotal').in('id',vacaIds); if(vd) vd.forEach(v=>vaciMap[v.id]=v); }
+  tbody.innerHTML=data.map(m=>{
+    const v=vaciMap[m.vaca_id]||{}; const z=daysDiff(m.data_monta);
+    return `<tr>
+      <td><strong>${v.numar_crotal||''} – ${v.nume||'–'}</strong></td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:0.78rem">${formatDate(m.data_monta)}</td>
+      <td><strong>${z}</strong>/283</td>
+      <td>${progGest(z)}</td>
+      <td style="font-size:0.78rem">${z>=263?'<span style="color:var(--red);font-weight:700">🚨 Transferați!</span>':formatDate(addDays(m.data_monta,263))}</td>
+      <td style="font-size:0.78rem">${z>=280?'<span style="color:var(--red);font-weight:700">🔴 Iminentă!</span>':formatDate(addDays(m.data_monta,280))}</td>
+      <td>${z<240?`<button class="btn btn-secondary btn-sm" onclick="openModifGest('${m.id}')">✏️</button>`:''} ${z>=280?`<button class="btn btn-primary btn-sm" onclick="openFatare('${m.id}','${m.vaca_id}')">🍼 Fătare</button>`:''}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadIstoricMonte() {
+  const { data, error } = await db.from('monte').select('*').eq('fatare_finalizata',true).order('data_monta',{ascending:false}).limit(30);
+  const tbody=document.getElementById('tblIstoricMonte');
+  if(error||!data||data.length===0){ tbody.innerHTML='<tr><td colspan="6" class="loading">Nu există istoric</td></tr>'; return; }
+  const vacaIds=[...new Set(data.map(m=>m.vaca_id).filter(Boolean))];
+  let vaciMap={};
+  if(vacaIds.length>0){ const { data: vd } = await db.from('vaci_lapte').select('id,nume,numar_crotal').in('id',vacaIds); if(vd) vd.forEach(v=>vaciMap[v.id]=v); }
+  tbody.innerHTML=data.map(m=>{ const v=vaciMap[m.vaca_id]||{}; return `<tr>
+    <td>${v.numar_crotal||''} – ${v.nume||'–'}</td>
+    <td style="font-family:'IBM Plex Mono',monospace;font-size:0.78rem">${formatDate(m.data_monta)}</td>
+    <td>${m.tip_monta||'–'}</td><td style="font-size:0.78rem">${m.informatii_taur||'–'}</td>
+    <td><span class="badge b-apta">Finalizată</span></td><td style="font-size:0.78rem">${formatDate(m.data_fatare_reala)}</td>
+  </tr>`; }).join('');
+}
+
+function deschideCalduri(montaId,numeAnimal){ calduriMontaId=montaId; document.getElementById('dlgCalduri-text').textContent=`"${numeAnimal}" – a manifestat semne de călduri în ultimele zile?`; openModal('dlgCalduri'); }
+async function raspundeCalduri(avutCalduri) {
+  closeModal('dlgCalduri'); if(!calduriMontaId) return;
+  if(avutCalduri){ await db.from('monte').update({a_avut_calduri_30:true}).eq('id',calduriMontaId); const { data:m }=await db.from('monte').select('vaca_id').eq('id',calduriMontaId).single(); if(m) await db.from('vaci_lapte').update({stare:'apta'}).eq('id',m.vaca_id); notif('Animal marcat ne-gestant. Programați o nouă montă.','warn'); }
+  else { await db.from('monte').update({gestanta_confirmata:true,a_avut_calduri_30:false,data_confirmare:today()}).eq('id',calduriMontaId); const { data:m }=await db.from('monte').select('vaca_id').eq('id',calduriMontaId).single(); if(m) await db.from('vaci_lapte').update({stare:'gestanta'}).eq('id',m.vaca_id); notif('✅ Animal marcat GESTANT!','ok'); }
+  loadDashboard(); loadMonte(); loadGestante();
+}
+
+let avortMontaId=null,avortAnimalId=null;
+function openModifGest(id){ modifGestId=id; document.getElementById('mg_data').value=today(); openModal('modalModifGest'); }
+async function salveazaModifGest(){ const novaData=document.getElementById('mg_data').value; if(!novaData){ notif('Introduceți noua dată!','err'); return; } await db.from('monte').update({data_monta:novaData,modificata:true,motiv_modificare:`${document.getElementById('mg_motiv').value}: ${document.getElementById('mg_obs').value}`}).eq('id',modifGestId); closeModal('modalModifGest'); notif('Gestație modificată!','ok'); loadGestante(); loadMonte(); }
+
+let fatareMontaId=null,fatareAnimalId=null;
+function openFatare(montaId,animalId){ fatareMontaId=montaId; fatareAnimalId=animalId; document.getElementById('fat_data').value=today(); document.getElementById('fat_vitel_section').style.display='block'; openModal('modalFatare'); }
+function toggleVitelViu(){ document.getElementById('fat_vitel_section').style.display=document.getElementById('fat_viu').value==='viu'?'block':'none'; }
+async function salveazaFatare(){
+  const dataFatare=document.getElementById('fat_data').value; if(!dataFatare){ notif('Completați data fătării!','err'); return; }
+  const viu=document.getElementById('fat_viu').value==='viu';
+  await db.from('monte').update({fatare_finalizata:true,data_fatare_reala:dataFatare}).eq('id',fatareMontaId);
+  const { data: animal }=await db.from('vaci_lapte').select('nr_fatari').eq('id',fatareAnimalId).single();
+  await db.from('vaci_lapte').update({stare:'alaptare',nr_fatari:(animal?.nr_fatari||0)+1}).eq('id',fatareAnimalId);
+  const obj={vaca_id:fatareAnimalId,data_fatare:dataFatare,tip_fatare:document.getElementById('fat_tip').value,sex_vitel:document.getElementById('fat_sex').value,vitel_sanatos:viu,vitel_vandut:false,vitel_ramas_ferma:viu,observatii:document.getElementById('fat_obs').value||null};
+  if(viu){ obj.nume_vitel=document.getElementById('fat_nume_vitel').value||null; obj.crotal_vitel=document.getElementById('fat_crotal_vitel').value||null; obj.greutate_vitel=parseFloat(document.getElementById('fat_greutate').value)||null; obj.informatii_tata=document.getElementById('fat_tata').value||null; }
+  const { data: newVitel }=await db.from('fatari').insert(obj).select('id').single();
+  if(viu&&obj.greutate_vitel&&newVitel?.id){ await db.from('greutati').insert({animal_id:newVitel.id,data:dataFatare,greutate_kg:obj.greutate_vitel,tip_cantarire:'intrare',observatii:'Greutate la naștere'}); }
+  closeModal('modalFatare'); notif(viu?'Fătare confirmată! Vițelul adăugat automat 🐄':'Fătare confirmată. Vițel decedat notat.','ok');
+  loadAnimale(); loadDashboard();
+}
+
+// ─────────────────────────────────────────────────────────
+// SĂNĂTATE
+// ─────────────────────────────────────────────────────────
+async function openModalTratament() {
+  await loadAnimaleList();
+  const sel=document.getElementById('t_vaca');
+  sel.innerHTML=animaleList.map(a=>`<option value="${a.id}">${a.numar_crotal||''} – ${a.nume}</option>`).join('');
+  document.getElementById('t_data').value=today();
+  openModal('modalTratament');
+}
+
+async function salveazaTratament() {
+  const vacaId=document.getElementById('t_vaca').value,tip=document.getElementById('t_tip').value,data=document.getElementById('t_data').value;
+  if(!vacaId||!data){ notif('Selectați animalul și data!','err'); return; }
+  const durata=parseInt(document.getElementById('t_durata').value)||null;
+  const { error }=await db.from('sanatate').insert({vaca_id:vacaId,tip,data,diagnostic:document.getElementById('t_diag').value,medicament:document.getElementById('t_med').value,doza:document.getElementById('t_doza').value,durata_zile:durata,veterinar:document.getElementById('t_vet').value,data_urmator:document.getElementById('t_urmator').value||null,observatii:document.getElementById('t_obs').value,finalizat:false,data_sfarsit:durata?addDays(data,durata):null});
+  if(error){ notif('Eroare: '+error.message,'err'); return; }
+  if(tip==='tratament') await db.from('vaci_lapte').update({stare:'tratament'}).eq('id',vacaId);
+  closeModal('modalTratament'); notif('Înregistrare medicală salvată ✅','ok'); loadSanatate();
+}
+
+async function loadSanatate() {
+  const { data, error }=await db.from('sanatate').select('*').order('data',{ascending:false});
+  if(error){ notif('Eroare sanatate: '+error.message,'err'); return; }
+  const vacaIds=[...new Set(data.map(x=>x.vaca_id).filter(Boolean))]; let vaciMap={};
+  if(vacaIds.length>0){ const { data: vd }=await db.from('vaci_lapte').select('id,nume,numar_crotal').in('id',vacaIds); if(vd) vd.forEach(v=>vaciMap[v.id]=v); }
+  const vName=x=>{ const v=vaciMap[x.vaca_id]||{}; return`${v.numar_crotal||''} – ${v.nume||'–'}`; };
+  const active=data.filter(x=>x.tip==='tratament'&&!x.finalizat);
+  const vacc=data.filter(x=>x.tip==='vaccin');
+  const dep=data.filter(x=>x.tip==='deparazitare');
+  const tipC={tratament:'b-tratament',vaccin:'b-gestanta',deparazitare:'b-apta',consultatie:'b-montata'};
+  document.getElementById('tblTrat').innerHTML=active.length?active.map(x=>`<tr><td><strong>${vName(x)}</strong></td><td>${x.diagnostic||'–'}</td><td>${x.medicament||'–'}</td><td>${x.doza||'–'}</td><td>${formatDate(x.data)}</td><td>${x.durata_zile||'–'}</td><td>${x.veterinar||'–'}</td><td><div class="action-btns"><button class="btn btn-amber btn-sm" onclick="openEditareSan(${x.id})">✏️</button><button class="btn btn-secondary btn-sm" onclick="finalizeazaTratament('${x.id}')">✅</button></div></td></tr>`).join(''):'<tr><td colspan="8" class="loading">Nu există tratamente active</td></tr>';
+  document.getElementById('tblVacc').innerHTML=vacc.length?vacc.map(x=>{ const sc=x.data_urmator&&daysDiff(x.data_urmator)>=0; return`<tr><td><strong>${vName(x)}</strong></td><td>${x.medicament||'–'}</td><td>${formatDate(x.data)}</td><td style="color:${sc?'var(--red)':'inherit'}">${formatDate(x.data_urmator)} ${sc?'⚠️':''}</td><td>${x.veterinar||'–'}</td><td><button class="btn btn-amber btn-sm" onclick="openEditareSan(${x.id})">✏️</button></td></tr>`; }).join(''):'<tr><td colspan="6" class="loading">Nu există vaccinuri</td></tr>';
+  document.getElementById('tblDep').innerHTML=dep.length?dep.map(x=>`<tr><td><strong>${vName(x)}</strong></td><td>${x.medicament||'–'}</td><td>${formatDate(x.data)}</td><td>${x.doza||'–'}</td><td>${formatDate(x.data_urmator)}</td><td><button class="btn btn-amber btn-sm" onclick="openEditareSan(${x.id})">✏️</button></td></tr>`).join(''):'<tr><td colspan="6" class="loading">Nu există deparazitări</td></tr>';
+  const tc={tratament:'b-tratament',vaccin:'b-gestanta',deparazitare:'b-apta',consultatie:'b-montata'};
+  document.getElementById('tblSanIst').innerHTML=data.length?data.map(x=>`<tr><td>${formatDate(x.data)}</td><td><strong>${vName(x)}</strong></td><td><span class="badge ${tc[x.tip]||'b-apta'}">${x.tip}</span></td><td>${x.diagnostic||'–'}</td><td>${x.medicament||'–'}</td><td>${x.veterinar||'–'}</td></tr>`).join(''):'<tr><td colspan="6" class="loading">Nu există înregistrări</td></tr>';
+}
+async function finalizeazaTratament(id){ await db.from('sanatate').update({finalizat:true}).eq('id',id); notif('Tratament finalizat ✅','ok'); loadSanatate(); }
+
+async function openEditareSan(id) {
+  editSanId=parseInt(id);
+  const { data: s }=await db.from('sanatate').select('*').eq('id',editSanId).single();
+  if(!s){ notif('Înregistrarea nu a fost găsită!','err'); return; }
+  document.getElementById('es_tip').value=s.tip||'tratament';
+  document.getElementById('es_data').value=s.data||'';
+  document.getElementById('es_diag').value=s.diagnostic||'';
+  document.getElementById('es_med').value=s.medicament||'';
+  document.getElementById('es_doza').value=s.doza||'';
+  document.getElementById('es_durata').value=s.durata_zile||'';
+  document.getElementById('es_urmator').value=s.data_urmator||'';
+  document.getElementById('es_vet').value=s.veterinar||'';
+  document.getElementById('es_obs').value=s.observatii||'';
+  openModal('modalEditareSan');
+}
+async function salveazaEditareSan(){
+  const durata=parseInt(document.getElementById('es_durata').value)||null,data=document.getElementById('es_data').value;
+  const { error }=await db.from('sanatate').update({tip:document.getElementById('es_tip').value,data,diagnostic:document.getElementById('es_diag').value,medicament:document.getElementById('es_med').value,doza:document.getElementById('es_doza').value,durata_zile:durata,data_urmator:document.getElementById('es_urmator').value||null,veterinar:document.getElementById('es_vet').value,observatii:document.getElementById('es_obs').value,data_sfarsit:durata&&data?addDays(data,durata):null}).eq('id',editSanId);
+  if(error){ notif('Eroare: '+error.message,'err'); return; }
+  closeModal('modalEditareSan'); notif('Înregistrare actualizată! ✅','ok'); loadSanatate();
+}
+
+// ─────────────────────────────────────────────────────────
+// VINDE ANIMAL
+// ─────────────────────────────────────────────────────────
+async function vindeAnimalById(id) {
+  if(!confirm('Sigur marcați acest animal ca vândut/ieșit din fermă?')) return;
+  await db.from('vaci_lapte').update({activ:false,stare:'vanduta',data_vanzare:today()}).eq('id',id);
+  notif('Animal scos din efectiv. Îl găsiți în Istoric Animale.','ok');
+  await loadAnimaleList(); loadAnimale(); loadDashboard();
+}
+async function vindeAnimalActiv(){ if(!currentAnimalId) return; if(!confirm('Sigur marcați ca vândut?')) return; await db.from('vaci_lapte').update({activ:false,stare:'vanduta',data_vanzare:today()}).eq('id',currentAnimalId); closeModal('modalFisa'); notif('Animal scos din efectiv.','ok'); loadAnimale(); loadDashboard(); }
+
+// ─────────────────────────────────────────────────────────
+// FIȘĂ ANIMAL
+// ─────────────────────────────────────────────────────────
+async function openFisa(v) {
+  currentAnimalId=v.id;
+  document.getElementById('fisaTitle').textContent=`📋 ${v.numar_crotal||''} – ${v.nume}`;
+  const age=v.data_nastere?Math.floor(daysDiff(v.data_nastere)/365):(v.an_nastere?getAge(v.an_nastere):0);
+  const { data: monte }=await db.from('monte').select('*').eq('vaca_id',v.id).order('data_monta',{ascending:false});
+  const { data: sanat }=await db.from('sanatate').select('*').eq('vaca_id',v.id).order('data',{ascending:false});
+  const { data: fatar }=await db.from('fatari').select('*').eq('vaca_id',v.id).order('data_fatare',{ascending:false});
+  const { data: greutati }=await db.from('greutati').select('*').eq('animal_id',v.id).order('data',{ascending:false}).limit(10);
+  const mActiva=monte?.find(m=>!m.fatare_finalizata);
+  const ultimaGr=greutati&&greutati[0];
+  document.getElementById('fisaBody').innerHTML=`
+    <div class="fisa-header"><div class="fisa-avatar">🐂</div><div>
+      <div class="fisa-name">${v.numar_crotal||''} – ${v.nume||'–'}</div>
+      <div class="fisa-meta">Rasă: ${v.rasa||'–'} · Născut: ${v.data_nastere?formatDate(v.data_nastere):(v.an_nastere||'–')}</div>
+      <div class="fisa-badges">
+        <span class="fisa-badge">Vârstă: ${age} ani</span>
+        <span class="fisa-badge">Fătări: ${v.nr_fatari||0}</span>
+        <span class="fisa-badge">${v.categorie_carne||'–'}</span>
+        <span class="fisa-badge">${v.stare||'–'}</span>
+        ${ultimaGr?`<span class="fisa-badge">⚖️ ${ultimaGr.greutate_kg} kg</span>`:''}
+      </div>
+    </div></div>
+    <div class="info-grid">
+      <div class="info-item"><div class="info-item-label">An naștere</div><div class="info-item-value">${v.an_nastere||'–'}</div></div>
+      <div class="info-item"><div class="info-item-label">Vârstă</div><div class="info-item-value">${age} ani</div></div>
+      <div class="info-item"><div class="info-item-label">Nr. fătări</div><div class="info-item-value">${v.nr_fatari||0}</div></div>
+      <div class="info-item"><div class="info-item-label">Rasă</div><div class="info-item-value">${v.rasa||'–'}</div></div>
+      <div class="info-item"><div class="info-item-label">Ultimă greutate</div><div class="info-item-value">${ultimaGr?ultimaGr.greutate_kg+' kg':'–'}</div></div>
+      <div class="info-item"><div class="info-item-label">Data cântăririi</div><div class="info-item-value">${ultimaGr?formatDate(ultimaGr.data):'–'}</div></div>
+    </div>
+    <div class="subsec-title">⚖️ Evoluție greutăți <button class="btn btn-primary btn-sm" onclick="openModalGreutateForAnimal()">+ Cântărire</button></div>
+    <div>${greutati&&greutati.length?greutati.map((g,i)=>{
+      const prev=greutati[i+1];
+      const smz=prev?((g.greutate_kg-prev.greutate_kg)/Math.max(1,Math.floor((new Date(g.data)-new Date(prev.data))/86400000))):null;
+      return`<div class="timeline-item"><div class="tl-dot" style="background:var(--c-light)"></div><div class="tl-date">${formatDate(g.data)}</div><div><div class="tl-title"><span class="tag tag-greutate">⚖️ ${g.greutate_kg} kg</span> ${g.tip_cantarire}</div>${smz!==null?`<div class="tl-detail">SMZ față de anterior: ${smzBadge(smz)}</div>`:''}</div></div>`;
+    }).join(''):'<div style="color:var(--text-light);font-size:0.82rem;padding:8px 0">Nu există cântăriri înregistrate</div>'}</div>
+    <div class="subsec-title">📅 Reproducție <button class="btn btn-primary btn-sm" onclick="closeModal('modalFisa');openModalMonta()">+ Montă</button></div>
+    <div>${monte&&monte.length?monte.map(m=>`<div class="timeline-item"><div class="tl-dot" style="background:var(--blue)"></div><div class="tl-date">${formatDate(m.data_monta)}</div><div><div class="tl-title"><span class="tag tag-monta">Montă</span> ${m.tip_monta||'–'} · ${m.informatii_taur||'–'}</div><div class="tl-detail">${m.gestanta_confirmata?'✅ Gestantă':m.a_avut_calduri_30?'🔴 Ne-gestantă':'⏳ Așteptare'}</div></div></div>`).join(''):'<div style="color:var(--text-light);font-size:0.82rem;padding:8px 0">Nu există monte înregistrate</div>'}</div>
+    <div class="subsec-title">🍼 Fătări</div>
+    <div>${fatar&&fatar.length?fatar.map(f=>`<div class="timeline-item"><div class="tl-dot" style="background:var(--red)"></div><div class="tl-date">${formatDate(f.data_fatare)}</div><div><div class="tl-title"><span class="tag tag-fatare">Fătare</span> ${f.tip_fatare||'normală'}</div><div class="tl-detail">Vițel ${f.sex_vitel||'–'} · ${f.greutate_vitel?f.greutate_vitel+'kg':''} · ${f.vitel_vandut?'Ieșit':'În fermă'}</div></div></div>`).join(''):'<div style="color:var(--text-light);font-size:0.82rem;padding:8px 0">Nu există fătări</div>'}</div>
+    <div class="subsec-title">💊 Istoric medical <button class="btn btn-primary btn-sm" onclick="closeModal('modalFisa');openModalTratament()">+ Adaugă</button></div>
+    <div>${sanat&&sanat.length?sanat.map(s=>{const tc={tratament:'tag-tratament',vaccin:'tag-vaccin',deparazitare:'tag-deparazitare',consultatie:'tag-monta'};return`<div class="timeline-item"><div class="tl-dot" style="background:var(--amber)"></div><div class="tl-date">${formatDate(s.data)}</div><div><div class="tl-title"><span class="tag ${tc[s.tip]||'tag-monta'}">${s.tip}</span> ${s.diagnostic||s.medicament||'–'}</div><div class="tl-detail">${s.medicament?s.medicament+' · ':''} ${s.doza||''} ${s.veterinar?'· Dr. '+s.veterinar:''}</div></div></div>`;}).join(''):'<div style="color:var(--text-light);font-size:0.82rem;padding:8px 0">Nu există înregistrări medicale</div>'}</div>
+    ${v.observatii?`<div class="info-box" style="margin-top:14px"><strong>Observații:</strong> ${v.observatii}</div>`:''}`;
+  openModal('modalFisa');
+}
+
+// ─────────────────────────────────────────────────────────
+// ISTORIC ANIMALE
+// ─────────────────────────────────────────────────────────
+async function loadIstoricAnimale() {
+  const { data, error }=await db.from('vaci_lapte').select('*').eq('activ',false).order('data_vanzare',{ascending:false});
+  const tbody=document.getElementById('tblIstoricAnimale');
+  if(error||!data||data.length===0){ tbody.innerHTML='<tr><td colspan="11" class="loading">Nu există animale în istoric</td></tr>'; return; }
+  // Ultima greutate din greutati pentru fiecare animal
+  const ids=data.map(v=>v.id);
+  let grMap={};
+  if(ids.length>0){ const { data: gr }=await db.from('greutati').select('animal_id,greutate_kg').in('animal_id',ids).order('data',{ascending:false}); if(gr) gr.forEach(g=>{ if(!grMap[g.animal_id]) grMap[g.animal_id]=g.greutate_kg; }); }
+  tbody.innerHTML=data.map(v=>`<tr>
+    <td><strong style="font-family:'IBM Plex Mono',monospace">${v.numar_crotal||'–'}</strong></td>
+    <td>${v.nume}</td>
+    <td>${badgeCategorie(v.categorie_carne)}</td>
+    <td>${v.rasa||'–'}</td>
+    <td>${v.data_nastere?formatDate(v.data_nastere):(v.an_nastere||'–')}</td>
+    <td style="text-align:center">${v.nr_fatari||0}</td>
+    <td>${grMap[v.id]?grMap[v.id]+' kg':'–'}</td>
+    <td style="font-family:'IBM Plex Mono',monospace;font-size:0.78rem">${formatDate(v.data_vanzare)||'–'}</td>
+    <td><span class="badge b-vanduta">Ieșit</span></td>
+    <td style="font-size:0.78rem;color:var(--text-mid)">${v.observatii||'–'}</td>
+    <td><button class="btn btn-secondary btn-sm" onclick="readucAnimalInFerma('${v.id}')">↩️ Readucere</button></td>
+  </tr>`).join('');
+}
+async function readucAnimalInFerma(id){ if(!confirm('Readuceți acest animal în efectivul activ?')) return; await db.from('vaci_lapte').update({activ:true,stare:'apta',data_vanzare:null}).eq('id',id); notif('Animal readus în fermă! ✅','ok'); loadIstoricAnimale(); await loadAnimaleList(); loadDashboard(); }
+
+// ─────────────────────────────────────────────────────────
+// ALERTE – sistem complet specific fermă carne
+// Acoperă: reproducție, sănătate, greutăți (SMZ slab,
+//          cântărire întârziată), furaje, vârste, vițele
+// ─────────────────────────────────────────────────────────
+async function calcAlerte() {
+  const alerte = [];
+
+  // 1. REPRODUCȚIE
+  const { data: monte }=await db.from('monte').select('*,vaci_lapte(nume,numar_crotal)').eq('fatare_finalizata',false);
+  if(monte) for(const m of monte) {
+    const zile=daysDiff(m.data_monta), numeA=m.vaci_lapte?.nume||'–', crotal=m.vaci_lapte?.numar_crotal||'';
+    const label=crotal?`${crotal} – ${numeA}`:numeA, fatEst=formatDate(addDays(m.data_monta,283));
+    if(!m.gestanta_confirmata&&m.a_avut_calduri_30===null){
+      if(zile>=30) alerte.push({nivel:'red',categorie:'reproductie',icon:'🚨',animal:label,mesaj:'CONFIRMARE OBLIGATORIE – '+zile+' zile de la montă',sub:'A avut călduri? Confirmați gestația acum!',actiune:`deschideCalduri('${m.id}','${numeA}')`});
+      else if(zile>=21) alerte.push({nivel:'amber',categorie:'reproductie',icon:'⚠️',animal:label,mesaj:'Posibile călduri – '+zile+' zile de la montă',sub:'Monitorizați comportamentul – confirmare la 30 zile'});
+    }
+    if(!m.gestanta_confirmata) continue;
+    if(zile>=205&&zile<220) alerte.push({nivel:'amber',categorie:'reproductie',icon:'📅',animal:label,mesaj:`${zile} zile gestație – Pregătiți transferul la maternitate`,sub:`Fătare estimată: ${fatEst}`});
+    if(zile>=220&&zile<263) alerte.push({nivel:'amber',categorie:'reproductie',icon:'🏥',animal:label,mesaj:`${zile} zile gestație – Supraveghere crescută`,sub:`Fătare estimată: ${fatEst}`});
+    if(zile>=263&&zile<280&&!m.transferata_maternitate) alerte.push({nivel:'red',categorie:'reproductie',icon:'🏥',animal:label,mesaj:`${zile} zile – Transfer la maternitate!`,sub:`Fătare estimată: ${fatEst}`});
+    if(zile>=280&&zile<283) alerte.push({nivel:'red',categorie:'reproductie',icon:'🍼',animal:label,mesaj:`${zile} zile – FĂTARE IMINENTĂ!`,sub:`${fatEst} · Monitorizare permanentă!`,actiune:`openFatare('${m.id}','${m.vaca_id}')`});
+    if(zile>=283) alerte.push({nivel:'red',categorie:'reproductie',icon:'🚨',animal:label,mesaj:`${zile} zile – FĂTARE DEPĂȘITĂ! (+${zile-283}z)`,sub:`Era estimată: ${fatEst} · Contactați veterinarul!`,actiune:`openFatare('${m.id}','${m.vaca_id}')`});
+  }
+
+  // 2. GREUTĂȚI – cântărire întârziată (>30 zile fără cântărire)
+  const { data: toateAnimale }=await db.from('vaci_lapte').select('*').eq('activ',true);
+  const { data: ultimeleGr }=await db.from('greutati').select('animal_id,greutate_kg,data').order('data',{ascending:false}).limit(500);
+  const ultimaGrMap={};
+  if(ultimeleGr) ultimeleGr.forEach(g=>{ if(!ultimaGrMap[g.animal_id]) ultimaGrMap[g.animal_id]=g; });
+
+  if(toateAnimale) for(const v of toateAnimale) {
+    const aniV=v.data_nastere?Math.floor(daysDiff(v.data_nastere)/365):getAge(v.an_nastere||2020);
+    // Vârstă > 7 ani
+    if(aniV>=7) alerte.push({nivel:'amber',categorie:'animale',icon:'🐂',animal:`${v.numar_crotal||''} – ${v.nume}`,mesaj:`${aniV} ani – Evaluați reforma/vânzarea`,sub:'Animalele bătrâne au eficiența furajară în scădere'});
+    // Cântărire întârziată pentru tineret la îngrășat (>21 zile)
+    const lastGr=ultimaGrMap[v.id];
+    const categorieTineret=['tineret_mascul','tineret_femela'].includes(v.categorie_carne);
+    if(categorieTineret){
+      if(!lastGr) alerte.push({nivel:'amber',categorie:'greutati',icon:'⚖️',animal:`${v.numar_crotal||''} – ${v.nume}`,mesaj:'Nicio cântărire înregistrată vreodată',sub:'Cântăriți și înregistrați greutatea inițială',actiune:`openModalGreutateForId('${v.id}')`});
+      else if(daysDiff(lastGr.data)>30) alerte.push({nivel:'amber',categorie:'greutati',icon:'⚖️',animal:`${v.numar_crotal||''} – ${v.nume}`,mesaj:`Nicio cântărire de ${daysDiff(lastGr.data)} zile`,sub:`Ultima: ${lastGr.greutate_kg} kg la ${formatDate(lastGr.data)}. Cântăriți lunar!`,actiune:`openModalGreutateForId('${v.id}')`});
+    }
+  }
+
+  // 3. SMZ SLAB – calculez SMZ din ultimele 2 cântăriri per animal de tineret
+  if(toateAnimale && ultimeleGr) {
+    const peAnimal={};
+    ultimeleGr.forEach(g=>{ if(!peAnimal[g.animal_id]) peAnimal[g.animal_id]=[]; peAnimal[g.animal_id].push(g); });
+    for(const v of toateAnimale){
+      if(!['tineret_mascul','tineret_femela'].includes(v.categorie_carne)) continue;
+      const lista=peAnimal[v.id];
+      if(!lista||lista.length<2) continue;
+      const g1=lista[0], g2=lista[1];
+      const zile=Math.floor((new Date(g1.data)-new Date(g2.data))/86400000);
+      if(zile<=0) continue;
+      const smz=(g1.greutate_kg-g2.greutate_kg)/zile;
+      if(smz<0.5) alerte.push({nivel:'red',categorie:'greutati',icon:'📉',animal:`${v.numar_crotal||''} – ${v.nume}`,mesaj:`SMZ slab: ${smz>=0?'+':''}${smz.toFixed(3)} kg/zi (sub 0.5 kg/zi)`,sub:`${g2.greutate_kg} kg → ${g1.greutate_kg} kg în ${zile} zile. Verificați rația și sănătatea!`});
+      else if(smz<0.8) alerte.push({nivel:'amber',categorie:'greutati',icon:'📊',animal:`${v.numar_crotal||''} – ${v.nume}`,mesaj:`SMZ sub medie: ${smz>=0?'+':''}${smz.toFixed(3)} kg/zi (țintă: 0.8–1.2)`,sub:`${g2.greutate_kg} kg → ${g1.greutate_kg} kg în ${zile} zile. Optimizați rația.`});
+    }
+  }
+
+  // 4. SĂNĂTATE – deparazitări, vaccinuri, tratamente
+  const { data: sanatate }=await db.from('sanatate').select('*,vaci_lapte(nume,numar_crotal)');
+  if(sanatate) for(const rec of sanatate){
+    const numeV=rec.vaci_lapte?.nume||'–', crotalV=rec.vaci_lapte?.numar_crotal||'';
+    const label=crotalV?`${crotalV} – ${numeV}`:numeV;
+    if(rec.tip==='deparazitare'&&rec.data_urmator){
+      const zileR=Math.floor((new Date(rec.data_urmator)-new Date())/86400000);
+      if(zileR<0) alerte.push({nivel:'red',categorie:'sanatate',icon:'💊',animal:label,mesaj:`Deparazitare DEPĂȘITĂ cu ${Math.abs(zileR)} zile`,sub:`Produs: ${rec.medicament||'–'} · ${formatDate(rec.data_urmator)}`});
+      else if(zileR<=7) alerte.push({nivel:zileR<=3?'red':'amber',categorie:'sanatate',icon:'💊',animal:label,mesaj:`Deparazitare în ${zileR===0?'AZI':zileR+' zile'}`,sub:`Produs: ${rec.medicament||'–'} · ${formatDate(rec.data_urmator)}`});
+    }
+    if(rec.tip==='vaccin'&&rec.data_urmator){
+      const zileR=Math.floor((new Date(rec.data_urmator)-new Date())/86400000);
+      if(zileR<0) alerte.push({nivel:'red',categorie:'sanatate',icon:'💉',animal:label,mesaj:`Vaccin DEPĂȘIT cu ${Math.abs(zileR)} zile`,sub:`${rec.medicament||'–'} · ${formatDate(rec.data_urmator)}`});
+      else if(zileR<=7) alerte.push({nivel:zileR<=3?'red':'amber',categorie:'sanatate',icon:'💉',animal:label,mesaj:`Vaccin scadent în ${zileR===0?'AZI':zileR+' zile'}`,sub:`${rec.medicament||'–'} · ${formatDate(rec.data_urmator)}`});
+    }
+    if(rec.tip==='tratament'&&!rec.finalizat&&rec.data_urmator){
+      const zileR=Math.floor((new Date(rec.data_urmator)-new Date())/86400000);
+      if(zileR===0) alerte.push({nivel:'red',categorie:'sanatate',icon:'💊',animal:label,mesaj:'Doză tratament AZI',sub:`${rec.diagnostic||''} · ${rec.medicament||''} ${rec.doza?'· '+rec.doza:''}`});
+    }
+  }
+
+  // 5. FURAJE – stoc sub minim
+  const { data: furaje }=await db.from('furaje').select('*').eq('activ',true);
+  if(furaje) for(const f of furaje){
+    if(f.stoc_minim&&f.stoc_curent<=f.stoc_minim) alerte.push({nivel:f.stoc_curent<=f.stoc_minim*0.5?'red':'amber',categorie:'furaje',icon:'🌾',animal:`Stoc: ${f.denumire}`,mesaj:`${f.stoc_curent} ${f.um} – SUB STOCUL MINIM (${f.stoc_minim} ${f.um})`,sub:`Tipul: ${f.tip}. Reaprovizionați urgent!`});
+  }
+
+  // 6. VIȚELE FEMELE – 18 luni, aptă montă
+  const { data: vitei }=await db.from('fatari').select('*').eq('sex_vitel','femela').eq('vitel_vandut',false);
+  if(vitei) for(const f of vitei){
+    if(!f.data_fatare) continue;
+    const zileV=daysDiff(f.data_fatare), luniV=Math.floor(zileV/30);
+    if(zileV>=540&&zileV<600) alerte.push({nivel:'amber',categorie:'vitei',icon:'🐄',animal:f.nume_vitel||f.crotal_vitel||'Vițea femelă',mesaj:`${luniV} luni – Aptă pentru prima montă!`,sub:`Născută: ${formatDate(f.data_fatare)} · Vârsta optimă: 15–18 luni`});
+    else if(zileV>=600) alerte.push({nivel:'red',categorie:'vitei',icon:'🐄',animal:f.nume_vitel||f.crotal_vitel||'Vițea femelă',mesaj:`${luniV} luni – Montă ÎNTÂRZIATĂ`,sub:`Născută: ${formatDate(f.data_fatare)} · Programați monta imediat!`});
+  }
+
+  alerte.sort((a,b)=>({'red':0,'amber':1}[a.nivel]??2)-({'red':0,'amber':1}[b.nivel]??2));
+  return alerte;
+}
+
+// ─── Afișare alerte cu filtre pe categorii ───
+async function loadAlerte() {
+  const cont=document.getElementById('alerteContainer');
+  cont.innerHTML='<div class="loading">Se scanează...</div>';
+  const alerte=await calcAlerte();
+  if(alerte.length===0){ cont.innerHTML=`<div class="card"><div class="card-body" style="text-align:center;padding:40px;color:var(--text-light)"><div style="font-size:3rem;margin-bottom:12px">✅</div><div style="font-size:1.1rem;font-weight:700;color:#2d5a27">Nu există alerte active</div><div style="font-size:0.84rem;margin-top:6px">Toate evenimentele sunt la zi.</div></div></div>`; return; }
+  const urgente=alerte.filter(a=>a.nivel==='red'), atentie=alerte.filter(a=>a.nivel==='amber');
+  const catLabel={reproductie:'🔄 Reproducție',greutati:'⚖️ Greutăți/SMZ',sanatate:'💊 Sănătate',animale:'🐂 Animale',vitei:'🐄 Viței',furaje:'🌾 Furaje'};
+  const categorii=[...new Set(alerte.map(a=>a.categorie))];
+  let html=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <div><span style="background:var(--red);color:white;border-radius:20px;padding:3px 10px;font-weight:700;font-size:0.78rem">${urgente.length} urgente</span> &nbsp; <span style="background:var(--amber);color:white;border-radius:20px;padding:3px 10px;font-weight:700;font-size:0.78rem">${atentie.length} atenție</span></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap" id="filtreCat">
+      <button class="btn btn-sm btn-primary" style="font-size:0.72rem" onclick="filtreazaAlerte('toate',event)">Toate (${alerte.length})</button>
+      ${categorii.map(c=>`<button class="btn btn-sm btn-secondary" style="font-size:0.72rem" onclick="filtreazaAlerte('${c}',event)">${catLabel[c]||c} (${alerte.filter(a=>a.categorie===c).length})</button>`).join('')}
+    </div>
+  </div><div id="listaAlerte">`;
+  if(urgente.length){ html+=`<div style="font-family:'IBM Plex Mono',monospace;font-size:0.6rem;letter-spacing:2px;text-transform:uppercase;color:var(--red);margin:0 0 8px;opacity:0.8">🚨 URGENTE – Necesită acțiune imediată</div>`; html+=urgente.map(a=>cardAlerta(a)).join(''); }
+  if(atentie.length){ html+=`<div style="font-family:'IBM Plex Mono',monospace;font-size:0.6rem;letter-spacing:2px;text-transform:uppercase;color:var(--amber);margin:${urgente.length?'18px':0} 0 8px;opacity:0.8">⚠️ ATENȚIE – Monitorizare necesară</div>`; html+=atentie.map(a=>cardAlerta(a)).join(''); }
+  html+='</div>';
+  cont.innerHTML=html;
+  window._alerteCache=alerte;
+}
+
+function cardAlerta(a){
+  const isRed=a.nivel==='red';
+  const bg=isRed?'background:linear-gradient(135deg,#fce4ec,#ffebee);border:2px solid var(--red)':'background:linear-gradient(135deg,#fff8e1,#fff3cd);border:2px solid var(--amber)';
+  const titleColor=isRed?'color:var(--red)':'color:var(--amber)';
+  const catLabel={reproductie:'🔄 Reproducție',greutati:'⚖️ SMZ',sanatate:'💊 Sănătate',animale:'🐂 Animale',vitei:'🐄 Viței',furaje:'🌾 Furaje'};
+  return `<div class="alerta-card" data-cat="${a.categorie}" style="${bg};border-radius:10px;padding:14px 16px;margin-bottom:10px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:800;${titleColor};font-size:0.92rem;margin-bottom:3px">${a.icon} ${a.animal} <span style="font-size:0.65rem;background:rgba(0,0,0,0.07);border-radius:10px;padding:2px 7px;margin-left:4px;font-family:'IBM Plex Mono',monospace">${catLabel[a.categorie]||a.categorie}</span></div>
+        <div style="font-size:0.875rem;color:var(--text-dark);margin-bottom:4px">${a.mesaj}</div>
+        ${a.sub?`<div style="font-size:0.77rem;color:var(--text-mid)">${a.sub}</div>`:''}
+      </div>
+      ${a.actiune?`<div style="flex-shrink:0"><button class="btn btn-sm ${isRed?'btn-danger':'btn-amber'}" onclick="${a.actiune}">→ Acțiune</button></div>`:''}
+    </div>
+  </div>`;
+}
+function filtreazaAlerte(cat,ev){
+  document.querySelectorAll('#filtreCat .btn').forEach(b=>{ b.className='btn btn-sm btn-secondary'; b.style.fontSize='0.72rem'; });
+  if(ev&&ev.target){ ev.target.className='btn btn-sm btn-primary'; ev.target.style.fontSize='0.72rem'; }
+  document.querySelectorAll('.alerta-card').forEach(c=>{ c.style.display=(cat==='toate'||c.dataset.cat===cat)?'block':'none'; });
+}
+
+// ─── Modale și utilitare UI ───
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.addEventListener('DOMContentLoaded',()=>{ document.querySelectorAll('.modal-overlay').forEach(o=>{ o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); }); }); });
+
+function notif(text, type='ok') {
+  const c=document.getElementById('notifContainer');
+  const n=document.createElement('div');
+  n.className=`notif ${type==='warn'?'warn':type==='err'?'err':''}`;
+  const icons={ok:'✅',warn:'⚠️',err:'❌'};
+  n.innerHTML=`<div style="font-size:1.2rem">${icons[type]||'ℹ️'}</div><div><div class="notif-title">FermaPro Carne</div><div class="notif-text">${text}</div></div>`;
+  c.appendChild(n);
+  setTimeout(()=>{ n.style.opacity='0'; n.style.transform='translateX(14px)'; n.style.transition='all 0.3s'; setTimeout(()=>n.remove(),300); },4500);
+}
+
+function previewSmz(){}
+</script>
+</body>
+</html>
