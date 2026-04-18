@@ -1768,7 +1768,6 @@ let avortMontaId=null,avortAnimalId=null;
 function openModifGest(id){ modifGestId=id; document.getElementById('mg_data').value=today(); openModal('modalModifGest'); }
 async function salveazaModifGest(){ const novaData=document.getElementById('mg_data').value; if(!novaData){ notif('Introduceți noua dată!','err'); return; } await db.from('monte').update({data_monta:novaData,modificata:true,motiv_modificare:`${document.getElementById('mg_motiv').value}: ${document.getElementById('mg_obs').value}`}).eq('id',modifGestId); closeModal('modalModifGest'); notif('Gestație modificată!','ok'); loadGestante(); loadMonte(); }
 
-let fatareMontaId=null,fatareAnimalId=null;
 function openFatare(montaId,animalId){ fatareMontaId=montaId; fatareAnimalId=animalId; document.getElementById('fat_data').value=today(); document.getElementById('fat_vitel_section').style.display='block'; openModal('modalFatare'); }
 function toggleVitelViu(){ document.getElementById('fat_vitel_section').style.display=document.getElementById('fat_viu').value==='viu'?'block':'none'; }
 async function salveazaFatare(){
